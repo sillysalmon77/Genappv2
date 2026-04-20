@@ -693,16 +693,8 @@ select option{background:var(--panel);}
           <div class="fg full"><label>Job Name</label><input type="text" id="jb-name" placeholder="e.g. Lurg 10ha Beat Up"/></div>
           <div class="fg"><label>Site</label><select id="jb-site"><option value="">Select Site</option></select></div>
           <div class="fg"><label>Deadline</label><input type="date" id="jb-deadline"/></div>
-          <div class="fg"><label>Unit Type</label>
-            <select id="jb-unit" onchange="updJobForm()">
-              <option value="trees">Trees</option>
-              <option value="ha">Hectares (spray/beat up)</option>
-              <option value="guards">Vole Guards</option>
-              <option value="stakes">Stakes &amp; Tubes</option>
-              <option value="days">Squad Days</option>
-            </select></div>
-          <div class="fg full" id="jb-target-wrap"><label id="jb-target-lbl">Quantity</label><input type="number" id="jb-target" min="1" placeholder="0"/></div>
-          <div class="fg" id="jb-area-wrap"><label>Site Area (ha)</label><input type="number" id="jb-area" step="0.1" placeholder="Optional — for reference"/></div>
+          
+          <div class="fg" id="jb-area-wrap"><label>Site Area (ha)</label><input type="number" id="jb-area" step="0.1" placeholder="Optional"/></div>
           <div class="fg full">
             <label>Disciplines &amp; Rates</label>
             <div id="jb-disciplines"></div>
@@ -732,20 +724,8 @@ select option{background:var(--panel);}
           <div class="fg"><label>From</label><input type="date" id="ts-from"/></div>
           <div class="fg"><label>To</label><input type="date" id="ts-to"/></div>
         </div>
-        <div style="font-family:var(--mono);font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--leaf);margin:10px 0 8px;">// Rates (£)</div>
-        <div class="form-grid">
-          <div class="fg"><label>Straight Plant (per tree)</label><input type="number" id="rate-straight" step="0.001" placeholder="0.000"/></div>
-          <div class="fg"><label>Beat Up / tree</label><input type="number" id="rate-beatup" step="0.001" placeholder="0.000"/></div>
-          <div class="fg"><label>Beat Up / ha</label><input type="number" id="rate-beatup-ha" step="0.01" placeholder="0.00"/></div>
-          <div class="fg"><label>Fertiliser (per tree)</label><input type="number" id="rate-fert" step="0.001" placeholder="0.000"/></div>
-          <div class="fg"><label>Vole Guards (per unit)</label><input type="number" id="rate-vole" step="0.001" placeholder="0.000"/></div>
-          <div class="fg"><label>Weevil Spray (per ha)</label><input type="number" id="rate-weevil" step="0.01" placeholder="0.00"/></div>
-          <div class="fg"><label>Weed Spray (per ha)</label><input type="number" id="rate-weed" step="0.01" placeholder="0.00"/></div>
-          <div class="fg"><label>Day Rate (per day)</label><input type="number" id="rate-day" step="0.01" placeholder="0.00"/></div>
-          <div class="fg"><label>Stakes Install (per unit)</label><input type="number" id="rate-stakes" step="0.001" placeholder="0.000"/></div>
-          <div class="fg"><label>Stakes Removal (per day)</label><input type="number" id="rate-stakes-rem" step="0.01" placeholder="0.00"/></div>
-        </div>
-        <button class="submit-btn" onclick="calcTimesheet()" style="margin-top:4px;">Calculate Timesheet</button>
+        <div id="ts-rates-preview" style="margin-top:10px;"></div>
+        <button class="submit-btn" onclick="calcTimesheet()" style="margin-top:8px;">Calculate Timesheet</button>
       </div>
       <div id="ts-result"></div>
     </div>
@@ -1543,33 +1523,7 @@ function getJobDisciplines() {
     rate: parseFloat(row.querySelector('.disc-rate').value) || 0,
   })).filter(d => d.target > 0);
 }
-function updJobForm() {
-  const unit = document.getElementById('jb-unit').value;
-  const lbl = document.getElementById('jb-target-lbl');
-  const areaWrap = document.getElementById('jb-area-wrap');
-  const targetWrap = document.getElementById('jb-target-wrap');
-  if (unit === 'ha') {
-    lbl.textContent = 'Quantity (ha)';
-    areaWrap.style.display = 'none'; // ha IS the target, no separate area needed
-    targetWrap.className = 'fg full';
-  } else if (unit === 'trees') {
-    lbl.textContent = 'Quantity (trees)';
-    areaWrap.style.display = 'flex';
-    targetWrap.className = 'fg';
-  } else if (unit === 'guards') {
-    lbl.textContent = 'Quantity (units)';
-    areaWrap.style.display = 'none';
-    targetWrap.className = 'fg full';
-  } else if (unit === 'stakes') {
-    lbl.textContent = 'Quantity (units)';
-    areaWrap.style.display = 'none';
-    targetWrap.className = 'fg full';
-  } else if (unit === 'days') {
-    lbl.textContent = 'Quantity (days)';
-    areaWrap.style.display = 'flex';
-    targetWrap.className = 'fg';
-  }
-}
+function updJobForm() { /* unit type now derived from disciplines */ }
 function toggleJobForm() {
   const f = document.getElementById('job-add-form');
   const opening = f.style.display !== 'block';
@@ -1663,8 +1617,12 @@ async function saveJob() {
   const name = document.getElementById('jb-name').value.trim();
   const site = document.getElementById('jb-site').value;
   const deadline = document.getElementById('jb-deadline').value;
-  const unit_type = document.getElementById('jb-unit').value;
-  const target = parseFloat(document.getElementById('jb-target').value);
+  const disciplines = getJobDisciplines();
+  const firstDisc = disciplines[0] || null;
+  // Derive unit_type from first discipline
+  const unitMap = {straight:'trees',beatup_t:'trees',beatup_h:'ha',fertiliser:'trees',vole:'guards',stakes_install:'stakes',stakes_removal:'days',weevil:'ha',weed:'ha',brushcutting:'ha',chainsaw:'days',day:'days',other:'units'};
+  const unit_type = firstDisc ? (unitMap[firstDisc.type]||'units') : 'units';
+  const target = disciplines.reduce((s,d) => s + (d.target||0), 0) || 1;
   const unit_type_val = document.getElementById('jb-unit').value;
   const area_ha = unit_type_val === 'ha' ? target : (parseFloat(document.getElementById('jb-area').value) || null);
   const notes = document.getElementById('jb-notes').value.trim();
@@ -1683,8 +1641,7 @@ async function saveJob() {
     }
   }
 
-  const disciplines = getJobDisciplines();
-  const primaryDisc = disciplines[0] || null;
+  const primaryDisc = firstDisc;
   const { error } = await sb.from('jobs').insert({
     name, site: site || null, unit_type, target, area_ha,
     deadline: deadline || null, notes: notes || null, map_url,
@@ -1697,7 +1654,7 @@ async function saveJob() {
   if (error) { toast('Error saving: ' + error.message, 'err'); return; }
 
   document.getElementById('job-add-form').style.display = 'none';
-  ['jb-name','jb-site','jb-deadline','jb-target','jb-area','jb-notes'].forEach(id => document.getElementById(id).value = '');
+  ['jb-name','jb-site','jb-deadline','jb-area','jb-notes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('jb-disciplines').innerHTML = '';
   document.getElementById('jb-ai-result').style.display = 'none';
   document.getElementById('jb-map-preview').innerHTML = '';
@@ -1852,6 +1809,7 @@ function renderLogJobStrip() {
       '<div class="job-pill-site">' + (job.site || '—') + dayStr + '</div>' +
       '<div class="job-pill-bar-wrap"><div class="job-pill-bar ' + barClass + '" style="width:' + pct + '%"></div></div>' +
       '<div class="job-pill-pct">' + pctText + '</div>' +
+      (job.disciplines ? (()=>{try{const d=JSON.parse(job.disciplines);return d.length?'<div style="font-family:var(--mono);font-size:7px;color:var(--pine);margin-top:2px;">'+d.map(x=>x.rate?'£'+parseFloat(x.rate).toFixed(3):null).filter(Boolean).join(' · ')+'</div>':''}catch(e){return ''}})():'') +
     '</div>';
   }).join('');
   strip.style.display = 'block';
@@ -1999,7 +1957,6 @@ async function submitQuickLog() {
 
 // ── TIMESHEET ─────────────────────────────────────────────────────────────
 function renderTimesheet() {
-  // Set default pay period to current month if not set
   const now = new Date();
   const fromEl = document.getElementById('ts-from');
   const toEl = document.getElementById('ts-to');
@@ -2009,6 +1966,49 @@ function renderTimesheet() {
   if (!toEl.value) {
     toEl.value = today();
   }
+  renderRatesPreview();
+}
+
+function getRatesFromJobs() {
+  // Build a rates map from all active job disciplines
+  const rates = {};
+  dbJobs.forEach(job => {
+    if (!job.disciplines) return;
+    try {
+      const discs = JSON.parse(job.disciplines);
+      discs.forEach(d => {
+        if (d.rate && d.type) {
+          // Keep highest rate if multiple jobs have same discipline type
+          if (!rates[d.type] || d.rate > rates[d.type]) {
+            rates[d.type] = d.rate;
+          }
+        }
+      });
+    } catch(e) {}
+  });
+  return rates;
+}
+
+function renderRatesPreview() {
+  const rates = getRatesFromJobs();
+  const el = document.getElementById('ts-rates-preview');
+  if (!el) return;
+  const entries = Object.entries(rates);
+  if (!entries.length) {
+    el.innerHTML = '<div style="font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1px;padding:8px 0;">No rates found — add discipline rates when creating jobs.</div>';
+    return;
+  }
+  el.innerHTML = '<div style="font-family:var(--mono);font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--leaf);margin-bottom:8px;">// Rates from Jobs</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">' +
+    entries.map(([type, rate]) => {
+      const opt = DISC_OPTS ? DISC_OPTS.find(o => o.v === type) : null;
+      return '<div style="background:var(--card);border:1px solid var(--border);border-radius:3px;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;">' +
+        '<span style="font-family:var(--mono);font-size:8px;color:var(--muted);">'+(opt?opt.l:type)+'</span>' +
+        '<span style="font-family:Bebas Neue,sans-serif;font-size:16px;color:var(--gold);">£'+parseFloat(rate).toFixed(3)+'</span>' +
+      '</div>';
+    }).join('') +
+    '</div>' +
+    '<div style="font-family:var(--mono);font-size:7px;color:var(--muted);margin-top:6px;letter-spacing:1px;">Rates pulled from active job disciplines. Update rates on the job to change.</div>';
 }
 
 function calcTimesheet() {
@@ -2016,19 +2016,10 @@ function calcTimesheet() {
   const to = document.getElementById('ts-to').value;
   if (!from || !to) { toast('Set pay period dates', 'err'); return; }
 
-  const rates = {
-    straight:    parseFloat(document.getElementById('rate-straight').value) || 0,
-    beatup_t:    parseFloat(document.getElementById('rate-beatup').value) || 0,
-    beatup_h:    parseFloat(document.getElementById('rate-beatup-ha').value) || 0,
-    fertiliser:  parseFloat(document.getElementById('rate-fert').value) || 0,
-    vole:        parseFloat(document.getElementById('rate-vole').value) || 0,
-    weevil:      parseFloat(document.getElementById('rate-weevil').value) || 0,
-    weed:        parseFloat(document.getElementById('rate-weed').value) || 0,
-    other_spray: parseFloat(document.getElementById('rate-weevil').value) || 0,
-    day:         parseFloat(document.getElementById('rate-day').value) || 0,
-    stakes_install: parseFloat(document.getElementById('rate-stakes').value) || 0,
-    stakes_removal: parseFloat(document.getElementById('rate-stakes-rem').value) || 0,
-  };
+  const rates = getRatesFromJobs();
+  // Ensure fallback keys exist
+  if (!rates.other_spray) rates.other_spray = rates.weevil || 0;
+  if (!rates.other) rates.other = rates.day || 0;
 
   // Filter entries to pay period (approved only)
   const pE = dbE.filter(e => e.status==='approved' && e.date >= from && e.date <= to);
