@@ -604,6 +604,7 @@ select option{background:var(--panel);}
               <option value="metres">Metres</option>
               <option value="count">Count</option>
             </select></div>
+          <div class="fg" id="w-rate-wrap" style="display:none"><label>Rate (£)</label><input type="number" id="w-rate" step="0.01" placeholder="e.g. 120.00"/></div>
           <div class="fg" id="w-vgrp"><label id="w-vlbl">Value</label>
             <div class="big-wrap gold"><input type="number" id="w-val" min="0" step="0.1" placeholder="0"/><span class="unit-sfx" id="w-sfx">HA</span></div></div>
           <div class="fg full"><label>Location</label>
@@ -611,7 +612,7 @@ select option{background:var(--panel);}
             <div id="nlw-w" style="display:none;margin-top:5px;"><input type="text" id="nli-w" placeholder="New location name"/></div></div>
           <div class="fg full"><label>Crew on Job</label><div class="crew-grid" id="wcrew"></div></div>
           <div class="fg full"><label>Notes (optional)</label><textarea id="w-notes" rows="2" placeholder="Details, kit used..."></textarea></div>
-          <div class="fg full" id="w-rate-wrap" style="display:none"><label>Rate per unit (£) — overrides job rate</label><input type="number" id="w-rate" step="0.01" placeholder="e.g. 120.00 for day rate"/></div>
+
         </div>
         <button class="submit-btn sgld" id="w-btn" onclick="subWork()">Log Work Entry</button>
         <br/><br/>
@@ -992,8 +993,15 @@ async function subWork(){
   if(!date){toast('Enter a date!','err');return;}
   if(!crew.length){toast('Select crew!','err');return;}
   if(utype!=='day'&&(isNaN(uval)||uval<=0)){toast('Enter a value!','err');return;}
+  const rateEl = document.getElementById('w-rate');
+  const manualRate = rateEl && rateEl.value ? parseFloat(rateEl.value) : null;
   const btn=document.getElementById('w-btn');btn.disabled=true;
-  const{error}=await sb.from('work_entries').insert({date,job_type:jtype,unit_type:utype,unit_value:uval,loc:loc||null,crew,notes:notes||null,status:isSup?'approved':'pending',submitted_by:user});
+  const{error}=await sb.from('work_entries').insert({
+    date, job_type:jtype, unit_type:utype, unit_value:uval,
+    loc:loc||null, crew, notes:notes||null,
+    status:isSup?'approved':'pending', submitted_by:user,
+    rate_override: manualRate
+  });
   btn.disabled=false;
   if(error){toast('Error saving','err');return;}
   document.getElementById('w-val').value='';document.getElementById('w-notes').value='';
