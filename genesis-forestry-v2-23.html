@@ -1,0 +1,2322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title id="page-title">Forestry Field Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{--black:#080a07;--deep:#0e1209;--panel:#141a0f;--card:#1a2214;--border:#253020;--moss:#3d4a2e;--pine:#4a6741;--leaf:#6b9e5e;--bright:#8dc97c;--gold:#c9a84c;--cream:#ddd8c4;--muted:#7a8470;--red:#b83232;--orange:#c97a2b;--blue:#4a7fa0;--bl:#6ba3c4;--mono:'Share Tech Mono',monospace;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--black);color:var(--cream);font-family:'Barlow',sans-serif;min-height:100vh;background-image:repeating-linear-gradient(0deg,transparent,transparent 59px,rgba(37,48,32,.3) 59px,rgba(37,48,32,.3) 60px),repeating-linear-gradient(90deg,transparent,transparent 59px,rgba(37,48,32,.12) 59px,rgba(37,48,32,.12) 60px);}
+#loading-screen{position:fixed;inset:0;background:var(--black);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;}
+.loading-logo{width:80px;height:80px;overflow:hidden;border-radius:50%;animation:pulse 1.5s ease-in-out infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 20px rgba(141,201,124,.15);}50%{box-shadow:0 0 50px rgba(141,201,124,.4);}}
+.loading-text{font-family:var(--mono);font-size:11px;letter-spacing:4px;color:var(--muted);margin-top:14px;}
+#login-screen{min-height:100vh;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+.login-logo{width:78px;height:78px;overflow:hidden;border-radius:50%;margin-bottom:12px;box-shadow:0 0 40px rgba(141,201,124,.18);}
+.login-title{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:5px;color:white;margin-bottom:2px;}
+.login-sub{font-family:var(--mono);font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--leaf);margin-bottom:24px;}
+.login-card{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:22px 18px;width:100%;max-width:360px;}
+.login-label{font-family:var(--mono);font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--leaf);margin-bottom:8px;display:block;}
+.name-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;}
+.name-btn{background:var(--card);border:1px solid var(--border);color:var(--cream);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:10px 3px;border-radius:3px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.name-btn:hover{border-color:var(--pine);color:var(--bright);}
+.name-btn.selected{border-color:var(--bright);background:rgba(141,201,124,.08);color:var(--bright);}
+.pfp-emoji{display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--moss);flex-shrink:0;}
+.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
+.login-btn{width:100%;background:var(--pine);border:none;color:white;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:4px;padding:12px;border-radius:3px;cursor:pointer;transition:background .2s;}
+.login-btn:hover{background:var(--leaf);}
+.mgmt-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.mgmt-btn{background:var(--card);border:1px solid var(--border);color:var(--cream);font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:3px;padding:12px;border-radius:3px;cursor:pointer;transition:all .2s;width:100%;}
+.mgmt-btn:hover{border-color:var(--pine);color:var(--bright);}
+#pin-section{display:none;}
+.pin-display{display:flex;justify-content:center;gap:12px;margin-bottom:14px;}
+.pin-dot{width:11px;height:11px;border-radius:50%;border:2px solid var(--muted);background:transparent;transition:background .15s;}
+.pin-dot.filled{background:var(--bright);border-color:var(--bright);}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
+.pin-key{background:var(--card);border:1px solid var(--border);color:var(--cream);font-family:'Bebas Neue',sans-serif;font-size:20px;padding:12px;border-radius:3px;cursor:pointer;text-align:center;transition:all .1s;}
+.pin-key:hover{border-color:var(--bright);color:var(--bright);}
+.pin-key:active{transform:scale(.95);}
+.pin-key.clr{color:var(--red);font-family:var(--mono);font-size:9px;letter-spacing:1px;}
+.pin-error{color:var(--red);font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;text-align:center;margin-top:7px;min-height:14px;}
+#pfp-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;align-items:center;justify-content:center;padding:20px;}
+#pfp-modal.show{display:flex;}
+.pfp-modal-card{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:22px 18px;max-width:300px;width:100%;text-align:center;}
+.pfp-modal-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px;color:white;margin-bottom:3px;}
+.pfp-modal-sub{font-size:11px;color:var(--muted);margin-bottom:12px;}
+.pfp-big-emoji{width:72px;height:72px;border-radius:50%;margin:0 auto 11px;border:2px solid var(--border);background:var(--moss);display:flex;align-items:center;justify-content:center;font-size:32px;}
+.pfp-big-img{width:72px;height:72px;border-radius:50%;margin:0 auto 11px;border:2px solid var(--border);object-fit:cover;display:none;}
+.emoji-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:11px;}
+.emoji-opt{background:var(--card);border:2px solid var(--border);border-radius:5px;font-size:19px;padding:6px;cursor:pointer;transition:all .15s;text-align:center;}
+.emoji-opt:hover{border-color:var(--pine);}
+.emoji-opt.selected{border-color:var(--bright);background:rgba(141,201,124,.1);}
+.pfp-upload-label{display:block;background:var(--card);border:1px dashed var(--border);border-radius:3px;padding:8px;cursor:pointer;color:var(--muted);font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;}
+.pfp-upload-label:hover{border-color:var(--leaf);color:var(--cream);}
+#pfp-file-input{display:none;}
+#app-shell{display:none;}
+header{background:var(--deep);border-bottom:2px solid var(--moss);padding:0 12px;position:sticky;top:0;z-index:100;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;height:56px;}
+.logo-wrap{width:34px;height:34px;overflow:hidden;border-radius:50%;flex-shrink:0;}
+.brand-name{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:4px;color:white;line-height:1;text-align:center;}
+.brand-sub{font-family:var(--mono);font-size:7px;letter-spacing:3px;text-transform:uppercase;color:var(--leaf);text-align:center;}
+.header-right{display:flex;align-items:center;gap:7px;}
+.user-badge{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:3px;padding:4px 8px;cursor:pointer;}
+.user-badge:hover{border-color:var(--moss);}
+.badge-name{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;}
+.badge-role{font-family:var(--mono);font-size:6px;letter-spacing:1px;text-transform:uppercase;color:var(--gold);}
+.badge-role.staff{color:var(--leaf);}
+.logout-btn{background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:8px;letter-spacing:1px;text-transform:uppercase;padding:4px 7px;border-radius:3px;cursor:pointer;transition:all .2s;}
+.logout-btn:hover{color:var(--red);border-color:var(--red);}
+.online-dot{width:6px;height:6px;border-radius:50%;background:var(--bright);box-shadow:0 0 5px var(--bright);flex-shrink:0;}
+.online-dot.offline{background:var(--red);box-shadow:0 0 5px var(--red);}
+.nav-tabs{display:flex;background:var(--deep);border-bottom:1px solid var(--border);padding:0 4px;overflow-x:auto;scrollbar-width:none;}
+.nav-tabs::-webkit-scrollbar{display:none;}
+.tab-btn{background:none;border:none;color:var(--muted);font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;padding:10px 10px 8px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;flex-shrink:0;}
+.tab-btn:hover{color:var(--cream);}
+.tab-btn.active{color:var(--bright);border-bottom-color:var(--bright);}
+.tab-btn.hidden{display:none;}
+.nbadge{display:inline-block;background:var(--orange);color:white;font-size:7px;font-family:var(--mono);padding:1px 4px;border-radius:6px;margin-left:3px;vertical-align:middle;}
+main{max-width:960px;margin:0 auto;padding:12px;}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:4px;color:white;margin-bottom:9px;display:flex;align-items:center;gap:6px;}
+.section-title::before{content:'//';font-family:var(--mono);font-size:10px;color:var(--pine);letter-spacing:0;}
+.section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);}
+.hero-block{background:var(--panel);border:1px solid var(--border);border-top:2px solid var(--bright);border-radius:3px;padding:16px 12px;text-align:center;margin-bottom:9px;}
+.hero-label{font-family:var(--mono);font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--leaf);margin-bottom:3px;}
+.hero-num{font-family:'Bebas Neue',sans-serif;font-size:68px;color:var(--bright);line-height:.9;letter-spacing:4px;}
+.hero-sub{font-family:var(--mono);font-size:7px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:4px;}
+.hero-stats{display:flex;justify-content:space-around;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.hs-val{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--cream);line-height:1;text-align:center;}
+.hs-lbl{font-family:var(--mono);font-size:7px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:center;}
+.ops-strip{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px;}
+.ops-chip{background:var(--panel);border:1px solid var(--border);border-left:2px solid var(--blue);border-radius:3px;padding:9px 11px;}
+.ops-chip.gold{border-left-color:var(--gold);}
+.ops-chip-val{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--bl);line-height:1;}
+.ops-chip.gold .ops-chip-val{color:var(--gold);}
+.ops-chip-lbl{font-family:var(--mono);font-size:7px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.verse-card{background:var(--panel);border:1px solid var(--border);border-left:2px solid var(--gold);border-radius:3px;padding:11px 13px;margin-bottom:9px;position:relative;overflow:hidden;}
+.verse-card::after{content:'✝';position:absolute;font-size:42px;opacity:.05;right:8px;top:-2px;line-height:1;}
+.verse-label{font-family:var(--mono);font-size:7px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:4px;}
+.verse-text{font-size:12px;line-height:1.6;color:var(--cream);font-style:italic;margin-bottom:4px;}
+.verse-ref{font-family:var(--mono);font-size:8px;color:var(--leaf);}
+.pill{display:inline-block;font-family:var(--mono);font-size:7px;letter-spacing:1px;text-transform:uppercase;padding:2px 7px;border-radius:10px;}
+.pill-pending{background:rgba(201,122,43,.2);color:var(--orange);border:1px solid var(--orange);}
+.pill-approved{background:rgba(74,103,65,.3);color:var(--bright);border:1px solid var(--pine);}
+.pill-rejected{background:rgba(184,50,50,.15);color:var(--red);border:1px solid var(--red);}
+.job-type-bar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:13px;}
+.jt-btn{background:var(--card);border:1px solid var(--border);color:var(--muted);font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:2px;padding:10px 3px;border-radius:3px;cursor:pointer;transition:all .2s;text-align:center;}
+.jt-btn:hover{border-color:var(--moss);color:var(--cream);}
+.jt-btn.ap{border-color:var(--bright);color:var(--bright);background:rgba(141,201,124,.07);}
+.jt-btn.as{border-color:var(--bl);color:var(--bl);background:rgba(74,127,160,.07);}
+.jt-btn.aw{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.07);}
+.job-form{display:none;}
+.job-form.active{display:block;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px;}
+.fg{display:flex;flex-direction:column;gap:5px;}
+.fg.full{grid-column:1/-1;}
+label{font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--leaf);}
+input,select,textarea{background:var(--panel);border:1px solid var(--border);color:var(--cream);font-family:'Barlow',sans-serif;font-size:14px;padding:10px 11px;border-radius:3px;outline:none;transition:border-color .2s;width:100%;}
+input:focus,select:focus,textarea:focus{border-color:var(--pine);}
+input[type="date"]{cursor:pointer;color-scheme:dark;}
+select option{background:var(--panel);}
+.big-wrap{position:relative;}
+.big-wrap input[type="number"]{font-family:'Bebas Neue',sans-serif;font-size:42px;text-align:center;padding:13px;letter-spacing:3px;}
+.big-wrap.green input{color:var(--bright);}
+.big-wrap.blue input{color:var(--bl);}
+.big-wrap.gold input{color:var(--gold);}
+.unit-sfx{position:absolute;right:9px;bottom:9px;font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+.submit-btn{width:100%;background:var(--pine);border:none;color:white;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:4px;padding:13px;border-radius:3px;cursor:pointer;transition:all .2s;}
+.submit-btn:hover{background:var(--leaf);}
+.submit-btn:disabled{background:var(--moss);cursor:not-allowed;opacity:.6;}
+.sblu{background:#1e4a6a;}.sblu:hover{background:var(--blue);}
+.sgld{background:#5a4a10;}.sgld:hover{background:#8a6a20;}
+.crew-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:2px;}
+.crew-btn{background:var(--card);border:1px solid var(--border);color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:8px 3px;border-radius:3px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:4px;user-select:none;}
+.crew-btn:hover{border-color:var(--blue);color:var(--bl);}
+.crew-btn.on{border-color:var(--bl);background:rgba(74,127,160,.1);color:var(--bl);}
+.entry-row{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:9px 11px;margin-bottom:5px;}
+.entry-row.pr{border-left:2px solid var(--pine);}
+.entry-row.sr{border-left:2px solid var(--blue);}
+.entry-row.wr{border-left:2px solid var(--gold);}
+.er-date{font-family:var(--mono);font-size:8px;color:var(--muted);min-width:62px;}
+.er-who{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;text-transform:uppercase;min-width:44px;}
+.er-val{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--bright);min-width:36px;}
+.er-val.bv{color:var(--bl);}
+.er-val.gv{color:var(--gold);}
+.er-loc{font-size:10px;color:var(--muted);flex:1;}
+.no-data{color:var(--muted);font-style:italic;font-size:12px;text-align:center;padding:16px;}
+.lb-row{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:10px 13px;margin-bottom:5px;}
+.lb-row.r1{border-color:#a08030;}
+.lb-row.r2{border-color:#707878;}
+.lb-row.r3{border-color:#705040;}
+.lb-rank{font-family:'Bebas Neue',sans-serif;font-size:20px;width:26px;text-align:center;color:var(--muted);flex-shrink:0;}
+.r1 .lb-rank{color:var(--gold);}
+.r2 .lb-rank{color:#aab8b8;}
+.r3 .lb-rank{color:#b08060;}
+.lb-name{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;flex:1;color:white;}
+.lb-bar-wrap{flex:2;height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
+.lb-bar{height:100%;background:linear-gradient(90deg,var(--pine),var(--bright));border-radius:2px;transition:width .8s ease;}
+.lb-count{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--bright);width:60px;text-align:right;}
+.lb-sub{font-family:var(--mono);font-size:7px;color:var(--muted);width:26px;}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-bottom:14px;}
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:13px;text-align:center;}
+.stat-card-val{font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--bright);line-height:1;}
+.stat-card-lbl{font-family:var(--mono);font-size:7px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:2px;}
+.person-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;}
+.ps-card{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:11px;}
+.ps-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.ps-name{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:2px;color:white;}
+.ps-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);}
+.ps-row:last-child{border-bottom:none;}
+.ps-k{font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;}
+.ps-v{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;color:var(--cream);}
+.ps-v.big{font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--bright);}
+.attend-bar-wrap{height:2px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:3px;}
+.attend-bar{height:100%;background:linear-gradient(90deg,var(--pine),var(--bright));border-radius:2px;}
+.spray-sum-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;}
+.spray-stat{background:var(--panel);border:1px solid var(--border);border-top:2px solid var(--blue);border-radius:3px;padding:11px;text-align:center;}
+.spray-stat-val{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--bl);line-height:1;}
+.spray-stat-lbl{font-family:var(--mono);font-size:7px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:2px;}
+.spray-op-row{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-left:2px solid var(--blue);border-radius:3px;padding:8px 11px;margin-bottom:5px;}
+.spray-op-name{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:2px;flex:1;}
+.spray-op-val{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--bl);}
+.spray-op-sub{font-family:var(--mono);font-size:7px;color:var(--muted);margin-left:3px;}
+.filter-bar{display:flex;gap:7px;margin-bottom:11px;}
+.filter-bar select{flex:1;}
+.cal-controls{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;}
+.cal-nav{background:var(--panel);border:1px solid var(--border);color:var(--cream);font-size:17px;width:32px;height:32px;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.cal-nav:hover{border-color:var(--pine);color:var(--bright);}
+.cal-month-title{font-family:'Bebas Neue',sans-serif;font-size:21px;letter-spacing:4px;color:white;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:11px;}
+.cal-day-hdr{font-family:var(--mono);font-size:7px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:center;padding:5px 0;}
+.cal-day{aspect-ratio:1;background:var(--panel);border:1px solid var(--border);border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;}
+.cal-day:hover{border-color:var(--pine);}
+.cal-day.empty{background:transparent;border-color:transparent;cursor:default;}
+.cal-day.today{border-color:var(--leaf);}
+.cal-day.has-data{background:var(--card);}
+.cal-day.selected{border-color:var(--bright);background:rgba(141,201,124,.08);}
+.cal-day-num{font-weight:600;color:var(--cream);font-size:11px;}
+.cal-day-trees{font-family:'Bebas Neue',sans-serif;font-size:10px;color:var(--bright);line-height:1;}
+.cal-day-dots{display:flex;gap:3px;justify-content:center;margin-top:2px;}
+.cal-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.cal-dot.sp{background:var(--bl);}
+.cal-dot.wk{background:var(--gold);}
+.cal-detail{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:13px;}
+.cal-detail-date{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:3px;color:white;margin-bottom:9px;}
+.cal-entry{display:flex;align-items:center;gap:7px;padding:7px 9px;background:var(--card);border-radius:3px;border-left:2px solid var(--pine);margin-bottom:5px;}
+.cal-entry.se{border-left-color:var(--blue);}
+.cal-entry.we{border-left-color:var(--gold);}
+.cal-entry-name{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;flex:1;}
+.cal-entry-loc{font-size:10px;color:var(--muted);}
+.cal-entry-val{font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--bright);}
+.cal-entry-val.bv{color:var(--bl);}
+.cal-entry-val.gv{color:var(--gold);}
+.pend-card{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:3px;padding:11px 13px;margin-bottom:7px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+.pend-card.sp{border-left-color:var(--blue);}
+.pend-card.wp{border-left-color:var(--gold);}
+.pc-info{flex:1;min-width:120px;}
+.pc-name{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;color:white;}
+.pc-meta{font-size:10px;color:var(--muted);margin-top:1px;}
+.pc-val{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--orange);min-width:48px;text-align:center;}
+.pc-val.bv{color:var(--bl);}
+.pc-val.gv{color:var(--gold);}
+.pc-val-lbl{font-family:var(--mono);font-size:7px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:center;}
+.pc-actions{display:flex;gap:5px;}
+.approve-btn{background:var(--pine);border:none;color:white;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;padding:7px 11px;border-radius:3px;cursor:pointer;}
+.approve-btn:hover{background:var(--leaf);}
+.reject-btn{background:transparent;border:1px solid var(--red);color:var(--red);font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;padding:7px 11px;border-radius:3px;cursor:pointer;}
+.reject-btn:hover{background:rgba(184,50,50,.1);}
+.log-tbl{width:100%;border-collapse:collapse;}
+.log-tbl th{font-family:var(--mono);font-size:7px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);}
+.log-tbl td{padding:8px;border-bottom:1px solid var(--border);font-size:11px;}
+.sites-add-btn{background:var(--card);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;padding:7px 11px;border-radius:3px;cursor:pointer;margin-bottom:11px;transition:all .2s;}
+.sites-add-btn:hover{border-color:var(--pine);color:var(--bright);}
+#site-add-form{display:none;background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:13px;margin-bottom:11px;}
+.map-search-wrap{position:relative;margin-bottom:5px;}
+.map-search-inp{background:var(--panel);border:1px solid var(--border);color:var(--cream);font-family:'Barlow',sans-serif;font-size:13px;padding:9px 68px 9px 10px;border-radius:3px;width:100%;outline:none;}
+.map-search-inp:focus{border-color:var(--pine);}
+.map-go-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:var(--pine);border:none;color:white;font-family:var(--mono);font-size:8px;letter-spacing:1px;padding:5px 8px;border-radius:2px;cursor:pointer;}
+.map-go-btn:hover{background:var(--leaf);}
+.w3w-row{display:flex;gap:5px;align-items:center;margin-bottom:5px;}
+.w3w-pfx{font-family:var(--mono);font-size:13px;color:#d44;flex-shrink:0;font-weight:700;}
+.site-map-wrap{border-radius:3px;overflow:hidden;border:1px solid var(--border);margin-bottom:5px;}
+#site-pick-map{height:200px;width:100%;background:var(--card);}
+.coord-display{font-family:var(--mono);font-size:8px;color:var(--muted);padding:2px 0 7px;letter-spacing:1px;min-height:14px;}
+.site-card{background:var(--panel);border:1px solid var(--border);border-left:2px solid transparent;border-radius:3px;margin-bottom:6px;overflow:hidden;transition:border-color .2s;}
+.site-card:hover{border-color:var(--moss);}
+.site-card.open{border-color:var(--pine);border-left-color:var(--bright);}
+.site-hdr{display:flex;align-items:center;gap:6px;padding:12px 14px;cursor:pointer;user-select:none;}
+.site-icon{font-size:16px;width:30px;height:30px;background:var(--card);border:1px solid var(--border);border-radius:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.site-name{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;flex:1;color:white;}
+.site-meta-txt{font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:1px;letter-spacing:1px;}
+.site-chev{color:var(--muted);font-family:var(--mono);font-size:12px;transition:transform .25s;flex-shrink:0;}
+.site-card.open .site-chev{transform:rotate(90deg);color:var(--bright);}
+.site-body{display:none;padding:0 11px 12px;border-top:1px solid var(--border);}
+.site-card.open .site-body{display:block;}
+.site-actions{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;}
+.map-btn{background:#1a3a5a;border:1px solid var(--blue);color:var(--bl);font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;padding:6px 11px;border-radius:3px;cursor:pointer;text-decoration:none;display:inline-block;transition:all .2s;}
+.map-btn:hover{background:var(--blue);color:white;}
+.map-btn.nomap{border-color:var(--border);color:var(--muted);background:transparent;cursor:default;}
+.wx-loading{color:var(--muted);font-family:var(--mono);font-size:8px;padding:10px 0;text-align:center;letter-spacing:2px;}
+.wx-block{background:var(--card);border:1px solid var(--border);border-radius:3px;padding:10px;margin-bottom:4px;}
+.wx-block.today{border-top:2px solid var(--leaf);}
+.wx-block.tom{border-top:2px solid var(--gold);}
+.wx-blk-lbl{font-family:var(--mono);font-size:7px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.wx-row{display:flex;align-items:center;gap:8px;}
+.wx-ico{font-size:30px;line-height:1;}
+.wx-desc{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;color:var(--cream);}
+.wx-temps{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--bright);letter-spacing:2px;line-height:1;}
+.wx-lo{font-size:15px;color:var(--muted);}
+.wx-chips{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;}
+.wx-chip{font-family:var(--mono);font-size:8px;color:var(--muted);background:var(--panel);border:1px solid var(--border);border-radius:2px;padding:2px 5px;}
+.wx-week-lbl{font-family:var(--mono);font-size:7px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin:7px 0 4px;}
+.wx-week{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.wx-day{background:var(--card);border:1px solid var(--border);border-radius:3px;padding:4px 2px;text-align:center;}
+.wx-day-n{font-family:var(--mono);font-size:6px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;}
+.wx-day-i{font-size:13px;margin-bottom:1px;}
+.wx-day-h{font-family:'Bebas Neue',sans-serif;font-size:12px;color:var(--cream);}
+.wx-day-l{font-family:var(--mono);font-size:7px;color:var(--muted);}
+.wx-site-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:7px;}
+.wx-s{background:var(--card);border:1px solid var(--border);border-radius:3px;padding:6px;text-align:center;}
+.wx-s-val{font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--gold);}
+.wx-s-lbl{font-family:var(--mono);font-size:6px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+
+.job-card{background:var(--panel);border:1px solid var(--border);border-radius:3px;margin-bottom:8px;overflow:hidden;}
+.job-card.urgent{border-color:var(--orange);}
+.job-card.overdue{border-color:var(--red);}
+.job-card.complete{border-color:var(--pine);opacity:.7;}
+.job-hdr{display:flex;align-items:center;gap:9px;padding:11px 13px;cursor:pointer;}
+.job-hdr:hover{background:rgba(255,255,255,.02);}
+.job-title{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:2px;flex:1;}
+.job-badges{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;}
+.job-days{font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--muted);}
+.job-days.urgent{color:var(--orange);}
+.job-days.overdue{color:var(--red);}
+.job-progress-wrap{padding:0 13px 11px;}
+.job-prog-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;}
+.job-prog-label{font-family:var(--mono);font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.job-prog-nums{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--bright);}
+.job-prog-nums.warn{color:var(--orange);}
+.job-prog-nums.done{color:var(--leaf);}
+.job-bar-wrap{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:6px;}
+.job-bar{height:100%;background:linear-gradient(90deg,var(--pine),var(--bright));border-radius:3px;transition:width .6s ease;max-width:100%;}
+.job-bar.warn{background:linear-gradient(90deg,var(--orange),#e09050);}
+.job-bar.over{background:var(--red);}
+.job-detail{display:none;padding:0 13px 12px;border-top:1px solid var(--border);}
+.job-detail.open{display:block;}
+.job-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0;}
+.jd-chip{background:var(--card);border:1px solid var(--border);border-radius:3px;padding:7px 10px;}
+.jd-chip-lbl{font-family:var(--mono);font-size:7px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;}
+.jd-chip-val{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--cream);}
+.job-flag{background:rgba(201,122,43,.15);border:1px solid var(--orange);border-radius:3px;padding:7px 10px;margin-top:6px;font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--orange);}
+.job-map-thumb{width:100%;border-radius:3px;border:1px solid var(--border);margin-top:8px;max-height:200px;object-fit:cover;}
+.ai-spin{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--muted);padding:8px 0;text-align:center;}
+
+.job-strip{margin-bottom:12px;}
+.job-strip-title{font-family:var(--mono);font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.job-pill-scroll{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;}
+.job-pill-scroll::-webkit-scrollbar{display:none;}
+.job-pill{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:8px 10px;flex-shrink:0;min-width:140px;max-width:180px;cursor:pointer;transition:border-color .2s;}
+.job-pill:hover{border-color:var(--pine);}
+.job-pill.selected{border-color:var(--bright);background:rgba(141,201,124,.07);}
+.job-pill.urgent{border-color:var(--orange);}
+.job-pill-name{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.job-pill-site{font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:1px;}
+.job-pill-bar-wrap{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:5px;}
+.job-pill-bar{height:100%;background:linear-gradient(90deg,var(--pine),var(--bright));border-radius:2px;}
+.job-pill-bar.warn{background:linear-gradient(90deg,var(--orange),#e09050);}
+.job-pill-pct{font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:3px;}
+
+.ts-card{background:var(--panel);border:1px solid var(--border);border-radius:3px;margin-bottom:8px;overflow:hidden;}
+.ts-person-hdr{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;}
+.ts-person-hdr:hover{background:rgba(255,255,255,.02);}
+.ts-name{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;flex:1;}
+.ts-total{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold);}
+.ts-body{display:none;padding:0 14px 12px;border-top:1px solid var(--border);}
+.ts-body.open{display:block;}
+.ts-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.ts-row:last-child{border-bottom:none;}
+.ts-row-lbl{color:var(--muted);}
+.ts-row-val{font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--cream);}
+.ts-row-earn{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--gold);}
+.ts-summary{background:var(--card);border:1px solid var(--border);border-top:2px solid var(--gold);border-radius:3px;padding:14px;margin-bottom:10px;}
+.ts-summary-title{font-family:var(--mono);font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:8px;}
+.ts-summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.ts-sum-chip{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:8px;text-align:center;}
+.ts-sum-val{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold);}
+.ts-sum-lbl{font-family:var(--mono);font-size:7px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+
+.disc-row{display:grid;grid-template-columns:1fr auto auto auto;gap:5px;align-items:center;margin-bottom:5px;}
+.disc-row select,.disc-row input{font-size:12px;padding:7px 8px;}
+.disc-target{width:80px;}
+.disc-rate{width:70px;}
+.disc-del{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:3px;padding:7px 9px;cursor:pointer;font-size:13px;transition:all .2s;}
+.disc-del:hover{border-color:var(--red);color:var(--red);}
+
+#setup-screen{min-height:100vh;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;background:var(--black);}
+.setup-card{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:24px 20px;width:100%;max-width:400px;}
+.setup-title{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:4px;color:white;margin-bottom:4px;text-align:center;}
+.setup-sub{font-family:var(--mono);font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--leaf);margin-bottom:20px;text-align:center;}
+.setup-step{display:none;}
+.setup-step.active{display:block;}
+.setup-step-title{font-family:var(--mono);font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--leaf);margin-bottom:10px;}
+.crew-add-row{display:flex;gap:6px;margin-bottom:6px;}
+.crew-add-row input{flex:1;}
+.crew-chip{display:inline-flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--border);border-radius:3px;padding:5px 9px;margin:3px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;}
+.crew-chip-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 2px;}
+.crew-chip-del:hover{color:var(--red);}
+#crew-chips{margin-bottom:10px;min-height:32px;}
+.setup-nav{display:flex;gap:8px;margin-top:14px;}
+.setup-back{background:var(--card);border:1px solid var(--border);color:var(--muted);font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;padding:11px;border-radius:3px;cursor:pointer;flex:1;}
+.setup-next{background:var(--pine);border:none;color:white;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:4px;padding:12px;border-radius:3px;cursor:pointer;flex:2;transition:background .2s;}
+.setup-next:hover{background:var(--leaf);}
+.step-dots{display:flex;justify-content:center;gap:6px;margin-bottom:16px;}
+.step-dot{width:7px;height:7px;border-radius:50%;background:var(--border);}
+.step-dot.active{background:var(--bright);}
+.del-entry-btn{background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:7px;letter-spacing:1px;padding:2px 6px;border-radius:2px;cursor:pointer;transition:all .2s;}
+.del-entry-btn:hover{border-color:var(--red);color:var(--red);}
+.wx-err{color:var(--orange);font-family:var(--mono);font-size:8px;padding:6px 0;letter-spacing:1px;}
+.site-files-header{display:flex;align-items:center;justify-content:space-between;margin:10px 0 6px;}
+.site-files-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:3px;color:white;display:flex;align-items:center;gap:6px;}
+.site-files-title::before{content:'//';font-family:var(--mono);font-size:10px;color:var(--pine);letter-spacing:0;}
+.files-sort{font-family:var(--mono);font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);background:var(--card);border:1px solid var(--border);border-radius:3px;padding:3px 7px;cursor:pointer;}
+.site-file-row{background:var(--card);border:1px solid var(--border);border-radius:3px;margin-bottom:5px;overflow:hidden;}
+.site-file-hdr{display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;}
+.site-file-hdr:hover{background:rgba(255,255,255,.03);}
+.site-file-icon{font-size:16px;flex-shrink:0;}
+.site-file-name{font-size:11px;color:var(--cream);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.site-file-date{font-family:var(--mono);font-size:8px;color:var(--muted);flex-shrink:0;}
+.site-file-actions{display:flex;gap:4px;flex-shrink:0;}
+.site-file-btn{font-family:var(--mono);font-size:7px;letter-spacing:1px;text-transform:uppercase;padding:3px 7px;border-radius:2px;cursor:pointer;text-decoration:none;display:inline-block;border:none;}
+.site-file-btn.view{background:#1a3a5a;border:1px solid var(--blue);color:var(--bl);}
+.site-file-btn.del{background:transparent;border:1px solid var(--red);color:var(--red);}
+.site-file-preview{display:none;padding:0 10px 10px;}
+.site-file-preview.open{display:block;}
+.site-file-preview img{width:100%;border-radius:3px;border:1px solid var(--border);}
+.site-file-preview .pdf-preview{background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:12px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;}
+.file-log-chip{font-family:var(--mono);font-size:7px;letter-spacing:1px;text-transform:uppercase;color:var(--leaf);background:rgba(74,103,65,.2);border:1px solid var(--pine);border-radius:2px;padding:2px 5px;margin-left:4px;}
+
+.upload-zone{border:1px dashed var(--border);border-radius:3px;padding:14px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:6px;background:var(--card);}
+.upload-zone:hover{border-color:var(--leaf);background:rgba(107,158,94,.06);}
+.upload-zone.dragover{border-color:var(--bright);background:rgba(141,201,124,.08);}
+.upload-zone-lbl{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+.upload-zone-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+#sa-file-input{display:none;}
+.upload-progress{font-family:var(--mono);font-size:9px;color:var(--leaf);letter-spacing:1px;margin-top:4px;min-height:14px;}
+.site-file-row{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:5px;}
+.site-file-icon{font-size:16px;flex-shrink:0;}
+.site-file-name{font-size:12px;color:var(--cream);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.site-file-btn{font-family:var(--mono);font-size:8px;letter-spacing:1px;text-transform:uppercase;padding:4px 8px;border-radius:2px;cursor:pointer;text-decoration:none;display:inline-block;}
+.site-file-btn.view{background:#1a3a5a;border:1px solid var(--blue);color:var(--bl);}
+.site-file-btn.del{background:transparent;border:1px solid var(--red);color:var(--red);}
+.site-file-btn:hover{opacity:.8;}
+.cmd-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:11px;}
+.cmd-stat{background:var(--panel);border:1px solid var(--border);border-top:2px solid var(--pine);border-radius:3px;padding:10px;text-align:center;}
+.cmd-stat.gld{border-top-color:var(--gold);}
+.cmd-stat.blu{border-top-color:var(--bl);}
+.cmd-stat.alr{border-top-color:var(--orange);}
+.cmd-val{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--bright);line-height:1;letter-spacing:2px;}
+.cmd-stat.gld .cmd-val{color:var(--gold);}
+.cmd-stat.blu .cmd-val{color:var(--bl);}
+.cmd-stat.alr .cmd-val{color:var(--orange);}
+.cmd-lbl{font-family:var(--mono);font-size:7px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:2px;}
+.cmd-crew-row{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:8px 10px;margin-bottom:4px;}
+.cmd-crew-name{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;flex:1;}
+.cmd-crew-meta{font-family:var(--mono);font-size:7px;color:var(--muted);letter-spacing:1px;}
+.cmd-bar-wrap{height:2px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:2px;}
+.cmd-bar{height:100%;background:linear-gradient(90deg,var(--pine),var(--bright));border-radius:2px;}
+.cmd-trees{font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--bright);}
+.cmd-coming{background:var(--panel);border:1px solid var(--border);border-left:2px solid var(--border);border-radius:3px;padding:9px 11px;margin-bottom:5px;opacity:.4;}
+.cmd-coming-lbl{font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;}
+.cmd-coming-val{font-size:11px;color:var(--muted);font-style:italic;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--pine);color:white;font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;padding:10px 16px;border-radius:3px;z-index:9999;transition:transform .3s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+@media(max-width:480px){.person-stats,.spray-sum-grid{grid-template-columns:1fr 1fr;}.form-grid{grid-template-columns:1fr;}.fg.full{grid-column:1;}}
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="loading-logo"><svg width="100%" height="100%" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="46" fill="#111410"/><polygon points="50,14 63,33 37,33" fill="#8dc97c"/><polygon points="50,27 67,50 33,50" fill="#8dc97c"/><polygon points="50,41 71,66 29,66" fill="#8dc97c"/><rect x="45" y="66" width="10" height="12" fill="#6b9e5e"/></svg></div>
+  <div class="loading-text" id="loading-text">Connecting...</div>
+</div>
+
+
+<div id="setup-screen">
+  <div style="font-size:48px;margin-bottom:12px;">🌲</div>
+  <div class="setup-title">Forestry Field Tracker</div>
+  <div class="setup-sub">First Time Setup</div>
+  <div class="setup-card">
+    <div class="step-dots">
+      <div class="step-dot active" id="dot-0"></div>
+      <div class="step-dot" id="dot-1"></div>
+      <div class="step-dot" id="dot-2"></div>
+    </div>
+
+    <div class="setup-step active" id="setup-step-0">
+      <div class="setup-step-title">// Your Company</div>
+      <div class="fg" style="margin-bottom:10px"><label>Company Name</label><input type="text" id="setup-company" placeholder="e.g. Genesis Forestry"/></div>
+      <div class="fg"><label>Tagline (optional)</label><input type="text" id="setup-tagline" placeholder="e.g. Field Operations"/></div>
+      <div class="setup-nav">
+        <button class="setup-next" onclick="setupNext(1)">Next →</button>
+      </div>
+    </div>
+
+    <div class="setup-step" id="setup-step-1">
+      <div class="setup-step-title">// Your Crew</div>
+      <div class="crew-add-row">
+        <input type="text" id="crew-input" placeholder="Crew member name" onkeydown="if(event.key==='Enter'){addCrewMember();event.preventDefault();}"/>
+        <button class="setup-next" style="flex:0;padding:10px 14px;" onclick="addCrewMember()">+</button>
+      </div>
+      <div id="crew-chips"></div>
+      <div class="setup-nav">
+        <button class="setup-back" onclick="setupNext(0)">← Back</button>
+        <button class="setup-next" onclick="setupNext(2)">Next →</button>
+      </div>
+    </div>
+
+    <div class="setup-step" id="setup-step-2">
+      <div class="setup-step-title">// Management Access</div>
+      <div class="fg" style="margin-bottom:8px"><label>Supervisor Name</label><input type="text" id="setup-sup-name" placeholder="e.g. Robbie"/></div>
+      <div class="fg" style="margin-bottom:10px"><label>Supervisor PIN (4 digits)</label><input type="number" id="setup-sup-pin" placeholder="e.g. 1234" maxlength="4"/></div>
+      <div class="fg" style="margin-bottom:8px"><label>Director Name</label><input type="text" id="setup-dir-name" placeholder="e.g. Lloyd"/></div>
+      <div class="fg" style="margin-bottom:10px"><label>Director PIN (4 digits)</label><input type="number" id="setup-dir-pin" placeholder="e.g. 5678" maxlength="4"/></div>
+      <div class="setup-nav">
+        <button class="setup-back" onclick="setupNext(1)">← Back</button>
+        <button class="setup-next" onclick="finishSetup()">Launch App</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="login-screen">
+  <div class="login-logo"><svg width="100%" height="100%" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="46" fill="#111410"/><polygon points="50,14 63,33 37,33" fill="#8dc97c"/><polygon points="50,27 67,50 33,50" fill="#8dc97c"/><polygon points="50,41 71,66 29,66" fill="#8dc97c"/><rect x="45" y="66" width="10" height="12" fill="#6b9e5e"/></svg></div>
+  <div class="login-title" id="login-title">Forestry Field Tracker</div>
+  <div class="login-sub" id="login-sub">Field Operations</div>
+  <div class="login-card">
+    <div id="planter-section">
+      <span class="login-label">Staff</span>
+      <div class="name-grid" id="name-grid"></div>
+      <button class="login-btn" onclick="loginPlanter()">Enter Field App</button>
+      <hr class="divider"/>
+      <span class="login-label">Management</span>
+      <div class="mgmt-grid">
+        <button class="mgmt-btn" onclick="loginRobbie()" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;">
+          <div id="robbie-pfp"></div><span>Robbie</span>
+        </button>
+        <button class="mgmt-btn" onclick="showPin('dir')" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;">
+          <div id="lloyd-pfp"></div><span>Lloyd</span>
+        </button>
+      </div>
+    </div>
+    <div id="pin-section">
+      <span class="login-label" style="display:block;text-align:center;margin-bottom:11px" id="pin-label">Management PIN</span>
+      <div class="pin-display"><div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div><div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div></div>
+      <div class="pin-pad">
+        <button class="pin-key" onclick="pp('1')">1</button><button class="pin-key" onclick="pp('2')">2</button><button class="pin-key" onclick="pp('3')">3</button>
+        <button class="pin-key" onclick="pp('4')">4</button><button class="pin-key" onclick="pp('5')">5</button><button class="pin-key" onclick="pp('6')">6</button>
+        <button class="pin-key" onclick="pp('7')">7</button><button class="pin-key" onclick="pp('8')">8</button><button class="pin-key" onclick="pp('9')">9</button>
+        <button class="pin-key clr" onclick="pinClear()">Clear</button><button class="pin-key" onclick="pp('0')">0</button><button class="pin-key" onclick="pinBack()">&#9003;</button>
+      </div>
+      <div class="pin-error" id="pin-err"></div>
+      <button class="mgmt-btn" style="width:100%;margin-top:9px" onclick="hidePin()">Back</button>
+    </div>
+  </div>
+</div>
+
+<div id="pfp-modal">
+  <div class="pfp-modal-card">
+    <div class="pfp-modal-title" id="pfp-modal-title">Set Your Avatar</div>
+    <div class="pfp-modal-sub" id="pfp-modal-sub">Pick an emoji or upload a photo</div>
+    <div class="pfp-big-emoji" id="pfp-placeholder">&#127794;</div>
+    <img class="pfp-big-img" id="pfp-preview-img"/>
+    <div class="emoji-grid" id="emoji-grid"></div>
+    <label class="pfp-upload-label" for="pfp-file-input">Upload Photo</label>
+    <input type="file" id="pfp-file-input" accept="image/*" onchange="handlePfpUpload(event)"/>
+    <button class="login-btn" onclick="savePfp()">Save &amp; Continue</button>
+    <button class="mgmt-btn" id="pfp-skip-btn" style="margin-top:5px" onclick="skipPfp()">Skip for Now</button>
+  </div>
+</div>
+
+<div id="app-shell">
+  <header>
+    <div style="display:flex;align-items:center;gap:7px;">
+      <div class="logo-wrap"><svg width="100%" height="100%" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="46" fill="#111410"/><polygon points="50,14 63,33 37,33" fill="#8dc97c"/><polygon points="50,27 67,50 33,50" fill="#8dc97c"/><polygon points="50,41 71,66 29,66" fill="#8dc97c"/><rect x="45" y="66" width="10" height="12" fill="#6b9e5e"/></svg></div>
+      <div class="online-dot" id="online-dot"></div>
+    </div>
+    <div><div class="brand-name" id="brand-name">Forestry Field Tracker</div><div class="brand-sub" id="brand-sub">Field Operations</div></div>
+    <div class="header-right">
+      <div class="user-badge" onclick="openPfpModal(true)">
+        <div id="hdr-pfp"></div>
+        <div><div class="badge-name" id="badge-name"></div><div id="badge-role" class="badge-role"></div></div>
+      </div>
+      <button class="logout-btn" onclick="logout()">Out</button>
+    </div>
+  </header>
+  <div class="nav-tabs">
+    <button class="tab-btn active" data-tab="home">Brief</button>
+    <button class="tab-btn" data-tab="log">Log</button>
+    <button class="tab-btn" data-tab="calendar">Field Cal</button>
+    <button class="tab-btn" data-tab="stats">SITREP</button>
+    <button class="tab-btn" data-tab="sites">Sites</button>
+    <button class="tab-btn hidden" data-tab="jobs" id="jobs-tab-btn">Jobs</button>
+    <button class="tab-btn hidden" data-tab="timesheet" id="timesheet-tab-btn">Timesheet</button>
+    <button class="tab-btn hidden" data-tab="verify" id="verify-tab-btn">Verify <span class="nbadge" id="nbadge" style="display:none">0</span></button>
+    <button class="tab-btn hidden" data-tab="command" id="command-tab-btn">Overview</button>
+  </div>
+  <main>
+    <div class="tab-panel active" id="tab-home">
+      <div class="hero-block">
+        <div class="hero-label">// Trees in Ground &mdash; All Time</div>
+        <div class="hero-num" id="home-total">&mdash;</div>
+        <div class="hero-sub">Verified &amp; Confirmed</div>
+        <div class="hero-stats">
+          <div><div class="hs-val" id="home-today">&mdash;</div><div class="hs-lbl">Today</div></div>
+          <div><div class="hs-val" id="home-week">&mdash;</div><div class="hs-lbl">This Week</div></div>
+          <div><div class="hs-val" id="home-days">&mdash;</div><div class="hs-lbl">Days Out</div></div>
+          <div><div class="hs-val" id="home-pend">&mdash;</div><div class="hs-lbl">Pending</div></div>
+        </div>
+      </div>
+      <div class="ops-strip">
+        <div class="ops-chip blue"><div class="ops-chip-val" id="home-ha">&mdash;</div><div class="ops-chip-lbl">Ha Sprayed</div></div>
+        <div class="ops-chip gold"><div class="ops-chip-val" id="home-work">&mdash;</div><div class="ops-chip-lbl">Work Sessions</div></div>
+      </div>
+      <div class="verse-card">
+        <div class="verse-label">&#10013; Word for the Field</div>
+        <div class="verse-text" id="verse-text"></div>
+        <div class="verse-ref" id="verse-ref"></div>
+      </div>
+      <div class="section-title">On the Ground Today</div>
+      <div id="home-crew"></div>
+    </div>
+    <div class="tab-panel" id="tab-log">
+      <div class="job-strip" id="log-job-strip" style="display:none">
+        <div class="job-strip-title">// Active Jobs</div>
+        <div class="job-pill-scroll" id="log-job-pills"></div>
+      </div>
+      <div class="section-title" id="log-title">Log Entry</div>
+      <div class="job-type-bar">
+        <button class="jt-btn ap" data-jt="plant" onclick="switchJT('plant')">&#127794; Planting</button>
+        <button class="jt-btn" data-jt="spray" onclick="switchJT('spray')">&#128167; Spraying</button>
+        <button class="jt-btn" data-jt="work" onclick="switchJT('work')">&#128295; Other Work</button>
+      </div>
+      <div class="job-form active" id="jf-plant">
+        <div class="form-grid">
+          <div class="fg"><label>Date</label><input type="date" id="p-date"/></div>
+          <div class="fg" id="p-pfg" style="display:none"><label>Crew Member</label><select id="p-person"><option value="">Select</option></select></div>
+          <div class="fg full"><label>Job Type</label>
+            <select id="p-jtype" onchange="updPU()">
+              <option value="straight">Straight Planting</option>
+              <option value="beatup_t">Beat Up - per tree</option>
+              <option value="beatup_h">Beat Up - per ha</option>
+              <option value="fertiliser">Planting + Fertiliser</option>
+              <option value="vole">Vole Guards</option>
+            </select></div>
+          <div class="fg full"><label id="p-ulbl">Trees Planted</label>
+            <div class="big-wrap green"><input type="number" id="p-count" min="0" placeholder="0"/><span class="unit-sfx" id="p-sfx">TREES</span></div></div>
+          <div class="fg full"><label>Location</label>
+            <select id="p-loc" onchange="lcCh('p');populateJobPicker()"><option value="">Select Location</option></select>
+            <div id="nlw-p" style="display:none;margin-top:5px;"><input type="text" id="nli-p" placeholder="New location name"/></div></div>
+          <div class="fg full" id="p-job-wrap" style="display:none"><label>Log Against Job (optional)</label>
+            <select id="p-job" onchange="autoFillJobType()"><option value="">No specific job</option></select></div>
+          <div class="fg full" id="p-crew-wrap" style="display:none"><label>Crew on Job</label><div class="crew-grid" id="pcrew"></div></div>
+          <div class="fg full"><label>Notes (optional)</label><textarea id="p-notes" rows="2" placeholder="Species, conditions..."></textarea></div>
+        </div>
+        <button class="submit-btn" id="p-btn" onclick="subPlant()">Submit for Verification</button>
+        <div id="quick-log-wrap" style="display:none;margin-top:10px;">
+          <div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--leaf);margin-bottom:8px;">// Quick Multi-Entry — same date &amp; location</div>
+          <div id="quick-entries-list"></div>
+          <button class="submit-btn" style="background:#1a3a1a;border:1px solid var(--pine);font-size:14px;padding:10px;margin-top:6px;" onclick="addQuickRow()">+ Add Person</button>
+          <button class="submit-btn" style="margin-top:6px;font-size:14px;padding:10px;" id="quick-submit-btn" onclick="submitQuickLog()">Submit All</button>
+        </div>
+        <button class="mgmt-btn" id="quick-toggle-btn" style="display:none;width:100%;margin-top:8px;font-size:12px;letter-spacing:2px;" onclick="toggleQuickLog()">+ Quick Multi-Entry</button>
+        <br/><br/>
+        <div class="section-title" id="p-rtitle">My Planting</div>
+        <div id="p-entries"></div>
+      </div>
+      <div class="job-form" id="jf-spray">
+        <div class="form-grid">
+          <div class="fg"><label>Date</label><input type="date" id="s-date"/></div>
+          <div class="fg"><label>Chemical</label><select id="s-chem"><option value="weevil">Weevil</option><option value="weed">Weed</option><option value="other">Other</option></select></div>
+          <div class="fg full"><label>Hectares Covered</label>
+            <div class="big-wrap blue"><input type="number" id="s-ha" min="0" step="0.5" placeholder="0"/><span class="unit-sfx">HA</span></div></div>
+          <div class="fg full"><label>Location</label>
+            <select id="s-loc" onchange="lcCh('s')"><option value="">Select Location</option></select>
+            <div id="nlw-s" style="display:none;margin-top:5px;"><input type="text" id="nli-s" placeholder="New location name"/></div></div>
+          <div class="fg full"><label>Crew Present</label><div class="crew-grid" id="screw"></div></div>
+          <div class="fg full"><label>Notes (optional)</label><textarea id="s-notes" rows="2" placeholder="Tank mix, conditions..."></textarea></div>
+        </div>
+        <button class="submit-btn sblu" id="s-btn" onclick="subSpray()">Log Spray Session</button>
+        <br/><br/>
+        <div class="section-title">Recent Spraying</div>
+        <div id="s-entries"></div>
+      </div>
+      <div class="job-form" id="jf-work">
+        <div class="form-grid">
+          <div class="fg"><label>Date</label><input type="date" id="w-date"/></div>
+          <div class="fg"><label>Job Type</label>
+            <select id="w-jtype">
+              <option value="brushcutting">Brushcutting</option>
+              <option value="hand_weeding">Hand Weeding</option>
+              <option value="mech_weeding">Mechanical Weeding</option>
+              <option value="stakes_install">Stakes &amp; Tubes Install</option>
+              <option value="stakes_removal">Stakes &amp; Tubes Removal</option>
+              <option value="chainsaw">Chainsaw Work</option>
+              <option value="gorse">Gorse Clearing</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="other">Other</option>
+            </select></div>
+          <div class="fg"><label>Unit</label>
+            <select id="w-utype" onchange="updWU()">
+              <option value="day">Day Rate</option>
+              <option value="ha">Hectares</option>
+              <option value="metres">Metres</option>
+              <option value="count">Count</option>
+            </select></div>
+          <div class="fg" id="w-rate-wrap" style="display:none"><label>Rate (£)</label><input type="number" id="w-rate" step="0.01" placeholder="e.g. 120.00"/></div>
+          <div class="fg" id="w-vgrp"><label id="w-vlbl">Value</label>
+            <div class="big-wrap gold"><input type="number" id="w-val" min="0" step="0.1" placeholder="0"/><span class="unit-sfx" id="w-sfx">HA</span></div></div>
+          <div class="fg full"><label>Location</label>
+            <select id="w-loc" onchange="lcCh('w')"><option value="">Select Location</option></select>
+            <div id="nlw-w" style="display:none;margin-top:5px;"><input type="text" id="nli-w" placeholder="New location name"/></div></div>
+          <div class="fg full"><label>Crew on Job</label><div class="crew-grid" id="wcrew"></div></div>
+          <div class="fg full"><label>Notes (optional)</label><textarea id="w-notes" rows="2" placeholder="Details, kit used..."></textarea></div>
+
+        </div>
+        <button class="submit-btn sgld" id="w-btn" onclick="subWork()">Log Work Entry</button>
+        <br/><br/>
+        <div class="section-title">Recent Other Work</div>
+        <div id="w-entries"></div>
+      </div>
+    </div>
+    <div class="tab-panel" id="tab-calendar">
+      <div class="section-title">Field Calendar</div>
+      <div class="cal-controls">
+        <button class="cal-nav" onclick="calShift(-1)">&#8249;</button>
+        <div class="cal-month-title" id="cal-title"></div>
+        <button class="cal-nav" onclick="calShift(1)">&#8250;</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-detail" id="cal-detail"><div class="no-data">Select a date</div></div>
+    </div>
+    <div class="tab-panel" id="tab-stats">
+      <div class="section-title">Mission Stats</div>
+      <div class="stats-grid" id="global-stats"></div>
+      <div class="section-title">Per Crew Member</div>
+      <div class="person-stats" id="person-stats"></div>
+      <div class="section-title">Trees in Ground</div>
+      <div class="filter-bar">
+        <select id="lb-filter" onchange="renderBoard()">
+          <option value="all">All Time</option>
+          <option value="week">This Week</option>
+          <option value="month">This Month</option>
+        </select>
+      </div>
+      <div id="leaderboard"></div>
+      <div class="section-title">Spraying &mdash; Season Record</div>
+      <div id="spray-summary"></div>
+    </div>
+    <div class="tab-panel" id="tab-sites">
+      <div class="section-title">Field Sites</div>
+      <button class="sites-add-btn hidden" id="add-site-btn" onclick="toggleSiteForm()">+ Add / Edit Site</button>
+      <div id="site-add-form">
+        <div class="form-grid">
+          <div class="fg full"><label>Site Name</label><input type="text" id="sa-name" placeholder="e.g. Wester Cambushinnie"/></div>
+        </div>
+        <label style="display:block;margin-bottom:4px;font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--leaf);">Location &mdash; Search or drop pin</label>
+        <div class="map-search-wrap">
+          <input class="map-search-inp" id="sa-search" placeholder="Search place name..." onkeydown="if(event.key==='Enter'){searchPlace();event.preventDefault();}"/>
+          <button class="map-go-btn" onclick="searchPlace()">Search</button>
+        </div>
+        <div class="w3w-row">
+          <span class="w3w-pfx">///</span>
+          <input class="map-search-inp" id="sa-w3w" placeholder="what3words e.g. filled.count.soap" style="flex:1;" onkeydown="if(event.key==='Enter'){resolveW3W();event.preventDefault();}"/>
+          <button class="map-go-btn" style="position:static;transform:none;" onclick="resolveW3W()">Go</button>
+        </div>
+        <div class="site-map-wrap"><div id="site-pick-map"></div></div>
+        <div class="coord-display" id="coord-display">Tap map or search to set location</div>
+        <input type="hidden" id="sa-lat"/><input type="hidden" id="sa-lon"/>
+        <div class="form-grid">
+          <div class="fg full">
+            <label>Site Files (Maps, PDFs, Images)</label>
+            <div class="upload-zone" id="upload-zone" onclick="document.getElementById('sa-file-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleFileDrop(event)">
+              <div class="upload-zone-lbl">📎 Tap to upload file</div>
+              <div class="upload-zone-sub">PDF, image, or any file · stored in Supabase</div>
+            </div>
+            <input type="file" id="sa-file-input" multiple accept=".pdf,.jpg,.jpeg,.png,.gif,.kml,.gpx" onchange="uploadSiteFiles(this.files)"/>
+            <div class="upload-progress" id="upload-progress"></div>
+            <label style="margin-top:6px;display:block;">Or paste a map URL (Google Drive / Avenza)</label>
+            <input type="text" id="sa-map" placeholder="https://drive.google.com/..."/>
+          </div>
+          <div class="fg full"><label>Site Notes</label><textarea id="sa-notes" rows="2" placeholder="Access notes, hazards, species..."></textarea></div>
+        </div>
+        <button class="submit-btn" onclick="saveSite()">Save Site</button>
+      </div>
+      <div id="sites-list"></div>
+    </div>
+
+    <div class="tab-panel" id="tab-jobs">
+      <div class="section-title">Upcoming Jobs</div>
+      <div id="job-mgmt-controls" style="display:none">
+      <button class="sites-add-btn" id="add-job-btn" onclick="toggleJobForm()">+ New Job Brief</button>
+      <div id="job-add-form" style="display:none;background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:13px;margin-bottom:11px;">
+        <div class="form-grid">
+          <div class="fg full"><label>Job Name</label><input type="text" id="jb-name" placeholder="e.g. Lurg 10ha Beat Up"/></div>
+          <div class="fg"><label>Site</label><select id="jb-site"><option value="">Select Site</option></select></div>
+          <div class="fg"><label>Deadline</label><input type="date" id="jb-deadline"/></div>
+          
+          <div class="fg" id="jb-area-wrap"><label>Site Area (ha)</label><input type="number" id="jb-area" step="0.1" placeholder="Optional"/></div>
+          <div class="fg full">
+            <label>Disciplines &amp; Rates</label>
+            <div id="jb-disciplines"></div>
+            <button type="button" onclick="addJobDiscipline()" style="background:var(--card);border:1px dashed var(--border);color:var(--muted);font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;padding:8px;border-radius:3px;cursor:pointer;width:100%;margin-top:5px;transition:all .2s;" onmouseover="this.style.borderColor='var(--pine)';this.style.color='var(--bright)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">+ Add Discipline</button>
+          </div>
+          <div class="fg full"><label>Job Notes / Brief</label><textarea id="jb-notes" rows="3" placeholder="Deadline reason, access notes, species, any special requirements..."></textarea></div>
+        </div>
+        <label style="display:block;margin-bottom:5px;font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--leaf);">Upload Job Map (AI will analyse)</label>
+        <div class="upload-zone" id="job-upload-zone" onclick="document.getElementById('jb-map-file').click()" style="margin-bottom:8px;">
+          <div class="upload-zone-lbl">📎 Tap to upload map image</div>
+          <div class="upload-zone-sub">Photo, PDF or screenshot of job map</div>
+        </div>
+        <input type="file" id="jb-map-file" accept="image/*,.pdf" style="display:none" onchange="analyseJobMap(this)"/>
+        <div id="jb-ai-result" style="display:none;background:var(--card);border:1px solid var(--border);border-left:2px solid var(--bl);border-radius:3px;padding:12px;margin-bottom:8px;font-size:12px;line-height:1.6;"></div>
+        <div id="jb-map-preview" style="margin-bottom:8px;"></div>
+        <button class="submit-btn" onclick="saveJob()">Create Job</button>
+      </div>
+      </div><!-- end job-mgmt-controls -->
+      <div id="jobs-list"></div>
+    </div>
+
+    <div class="tab-panel" id="tab-timesheet">
+      <div class="section-title">Timesheet Calculator</div>
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:14px;margin-bottom:12px;">
+        <div style="font-family:var(--mono);font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--leaf);margin-bottom:10px;">// Pay Period</div>
+        <div class="form-grid">
+          <div class="fg"><label>From</label><input type="date" id="ts-from"/></div>
+          <div class="fg"><label>To</label><input type="date" id="ts-to"/></div>
+        </div>
+        <div id="ts-rates-preview" style="margin-top:10px;"></div>
+        <button class="submit-btn" onclick="calcTimesheet()" style="margin-top:8px;">Calculate Timesheet</button>
+      </div>
+      <div id="ts-result"></div>
+    </div>
+    <div class="tab-panel" id="tab-verify">
+      <div class="section-title">Pending Verification</div>
+      <div id="pending-list"></div>
+      <br/>
+      <div class="section-title">Recently Actioned</div>
+      <div id="actioned-list"></div>
+    </div>
+    <div class="tab-panel" id="tab-command">
+      <div class="section-title">Operations Overview</div>
+      <div id="command-dash"></div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const SUPA_URL='https://vtlynoiwpyhfwqkyhhfs.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0bHlub2l3cHloZndxa3loaGZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNzc4MjcsImV4cCI6MjA5MTc1MzgyN30.lDBB2YnxwGu622Kg0l5EQKo3rD8zJjDrtYTv4O-7CGA';
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
+let CREW=['Robbie','Ross','Harry','Scott','Drew','Alex','Jo'];
+let STAFF_GRID=['Ross','Harry','Scott','Drew','Alex','Jo'];
+let SUPERVISOR='Robbie';
+let PIN='7777';
+let LLOYD_PIN='7777';
+let COMPANY_NAME='Forestry Field Tracker';
+let COMPANY_SUB='Field Operations';
+let DIR_NAME='Lloyd';
+let SUP_NAME='Robbie';
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const EMOJIS=['🌲','🌳','🌿','🦌','🪓','🌱','🏔️','🦅','🐻','🍃','⛰️','🌾','🦊','🪵','🎯'];
+const BASE_LOCS=['Lurg','Almont','Eldridge','Hartfield','Loch Ree'];
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const JL={site_file:'Site File Upload',vole:'Vole Guards',beatup_h:'Beat Up (ha)',straight:'Straight Planting',beatup_t:'Beat Up (tree)',beatup_h:'Beat Up (ha)',fertiliser:'Planting+Fertiliser',vole:'Vole Guards',brushcutting:'Brushcutting',hand_weeding:'Hand Weeding',mech_weeding:'Mech Weeding',stakes_install:'Stakes Install',stakes_removal:'Stakes Removal',chainsaw:'Chainsaw',gorse:'Gorse Clearing',maintenance:'Maintenance',other:'Other'};
+const WX={0:{d:'Clear sky',e:'☀️'},1:{d:'Mainly clear',e:'🌤️'},2:{d:'Partly cloudy',e:'⛅'},3:{d:'Overcast',e:'☁️'},45:{d:'Foggy',e:'🌫️'},51:{d:'Light drizzle',e:'🌦️'},53:{d:'Drizzle',e:'🌧️'},61:{d:'Light rain',e:'🌧️'},63:{d:'Rain',e:'🌧️'},65:{d:'Heavy rain',e:'🌧️'},71:{d:'Light snow',e:'🌨️'},73:{d:'Snow',e:'❄️'},80:{d:'Showers',e:'🌦️'},95:{d:'Thunderstorm',e:'⛈️'}};
+const wxCache={};
+let user=null,isSup=false,isDir=false,pinBuf='',pinMode='sup';
+let pfpChoice=null,pfpChange=false;
+let dbE=[],dbSp=[],dbWk=[],dbProfiles={},dbLocs=[...BASE_LOCS],dbSD={};
+const today=()=>new Date().toISOString().split('T')[0];
+const fmtD=s=>{const[y,m,d]=s.split('-');return parseInt(d)+' '+MONTHS[parseInt(m)-1].slice(0,3)+' '+y;};
+const wxi=c=>WX[c]||{d:'Unknown',e:'🌡️'};
+function toast(msg,col){const t=document.getElementById('toast');t.textContent=msg;t.style.background=col==='err'?'#b83232':col==='blue'?'#1e4a6a':'var(--pine)';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+function setOnline(on){const d=document.getElementById('online-dot');if(d)d.classList.toggle('offline',!on);}
+
+async function initDB(){
+  try{
+    const[eR,pR,lR,spR,wR]=await Promise.all([
+      sb.from('entries').select('*').order('created_at',{ascending:false}),
+      sb.from('profiles').select('*'),
+      sb.from('locations').select('*'),
+      sb.from('spray_entries').select('*').order('created_at',{ascending:false}),
+      sb.from('work_entries').select('*').order('created_at',{ascending:false})
+    ]);
+    if(eR.error)throw eR.error;
+    dbE=eR.data||[];
+    dbProfiles={};(pR.data||[]).forEach(p=>{dbProfiles[p.name]={type:p.pfp_type,value:p.pfp_value};});
+    dbLocs=[...BASE_LOCS];dbSD={};
+    (lR.data||[]).forEach(l=>{
+      if(!dbLocs.includes(l.name))dbLocs.push(l.name);
+      if(l.lat)dbSD[l.name]={lat:l.lat,lon:l.lon,map_url:l.map_url,notes:l.site_notes};
+    });
+    dbSp=spR.error?[]:(spR.data||[]);
+    dbWk=wR.error?[]:(wR.data||[]);
+    setOnline(true);subRT();
+    // Load company config
+    const hasConfig = await loadConfig();
+    document.getElementById('loading-screen').style.display='none';
+    if (!hasConfig) {
+      document.getElementById('setup-screen').style.display='flex';
+    } else {
+      document.getElementById('login-screen').style.display='flex';
+      buildNames();
+    }
+  }catch(e){
+    console.error(e);
+    setTimeout(()=>{
+      document.getElementById('loading-screen').style.display='none';
+      document.getElementById('login-screen').style.display='flex';
+      buildNames();
+    },2000);
+  }
+}
+
+function subRT(){
+  sb.channel('gf-rb2')
+    .on('postgres_changes',{event:'*',schema:'public',table:'entries'},async()=>{const{data}=await sb.from('entries').select('*').order('created_at',{ascending:false});dbE=data||[];refreshUI();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'spray_entries'},async()=>{const{data}=await sb.from('spray_entries').select('*').order('created_at',{ascending:false});dbSp=data||[];refreshUI();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'work_entries'},async()=>{const{data}=await sb.from('work_entries').select('*').order('created_at',{ascending:false});dbWk=data||[];refreshUI();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'profiles'},async()=>{const{data}=await sb.from('profiles').select('*');dbProfiles={};(data||[]).forEach(p=>{dbProfiles[p.name]={type:p.pfp_type,value:p.pfp_value};});buildNames();updHPfp();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'locations'},async()=>{const{data}=await sb.from('locations').select('*');dbLocs=[...BASE_LOCS];dbSD={};(data||[]).forEach(l=>{if(!dbLocs.includes(l.name))dbLocs.push(l.name);if(l.lat)dbSD[l.name]={lat:l.lat,lon:l.lon,map_url:l.map_url,notes:l.site_notes};});buildLocs();})
+    .subscribe(s=>setOnline(s==='SUBSCRIBED'));
+}
+
+function pfpHtml(n,sz){
+  const p=dbProfiles[n];
+  const px=sz==='lg'?48:sz==='md'?40:32;
+  const fs=sz==='lg'?24:sz==='md'?20:16;
+  if(p&&p.type==='img')return '<img class="pfp-emoji" style="width:'+px+'px;height:'+px+'px;object-fit:cover;border-radius:50%" src="'+p.value+'"/>';
+  if(p&&p.type==='emoji')return '<div class="pfp-emoji" style="width:'+px+'px;height:'+px+'px;font-size:'+fs+'px">'+p.value+'</div>';
+  return '<div class="pfp-emoji" style="width:'+px+'px;height:'+px+'px;font-size:'+fs+'px;background:var(--moss)">'+n[0]+'</div>';
+}
+function openPfpModal(isChange){
+  pfpChange=isChange;
+  const cur=dbProfiles[user];
+  pfpChoice=cur||{type:'emoji',value:'🌲'};
+  document.getElementById('pfp-modal-title').textContent=isChange?'Change Avatar':'Hey '+user+'!';
+  document.getElementById('pfp-modal-sub').textContent=isChange?'Pick a new look':'Choose your avatar';
+  document.getElementById('pfp-skip-btn').style.display=isChange?'none':'block';
+  const sel=pfpChoice.type==='emoji'?pfpChoice.value:null;
+  document.getElementById('emoji-grid').innerHTML=EMOJIS.map(e=>'<div class="emoji-opt'+(sel===e?' selected':'')+'" onclick="selEmoji(\''+e+'\')">'+e+'</div>').join('');
+  updPfpPrev();
+  document.getElementById('pfp-modal').classList.add('show');
+}
+function selEmoji(e){pfpChoice={type:'emoji',value:e};document.querySelectorAll('.emoji-opt').forEach(el=>el.classList.toggle('selected',el.textContent===e));document.getElementById('pfp-preview-img').style.display='none';document.getElementById('pfp-placeholder').style.display='flex';document.getElementById('pfp-placeholder').textContent=e;}
+function handlePfpUpload(ev){const file=ev.target.files[0];if(!file)return;const r=new FileReader();r.onload=e=>{pfpChoice={type:'img',value:e.target.result};document.getElementById('pfp-placeholder').style.display='none';const img=document.getElementById('pfp-preview-img');img.src=e.target.result;img.style.display='block';document.querySelectorAll('.emoji-opt').forEach(el=>el.classList.remove('selected'));};r.readAsDataURL(file);}
+function updPfpPrev(){if(pfpChoice&&pfpChoice.type==='img'){document.getElementById('pfp-placeholder').style.display='none';const img=document.getElementById('pfp-preview-img');img.src=pfpChoice.value;img.style.display='block';}else{document.getElementById('pfp-preview-img').style.display='none';document.getElementById('pfp-placeholder').style.display='flex';document.getElementById('pfp-placeholder').textContent=pfpChoice?pfpChoice.value:'🌲';}}
+async function savePfp(){if(!pfpChoice||!user)return;await sb.from('profiles').upsert({name:user,pfp_type:pfpChoice.type,pfp_value:pfpChoice.value,updated_at:new Date().toISOString()});dbProfiles[user]=pfpChoice;document.getElementById('pfp-modal').classList.remove('show');if(!pfpChange){launch();}else{updHPfp();renderBoard();renderStats();buildNames();}}
+function skipPfp(){document.getElementById('pfp-modal').classList.remove('show');launch();}
+
+function buildNames(){document.getElementById('name-grid').innerHTML=CREW.map(n=>'<button class="name-btn" data-n="'+n+'" onclick="pickName(\''+n+'\')">'+pfpHtml(n,'sm')+n+'</button>').join('');}
+function pickName(n){document.querySelectorAll('.name-btn').forEach(b=>b.classList.remove('selected'));document.querySelector('.name-btn[data-n="'+n+'"]').classList.add('selected');user=n;}
+function loginPlanter(){if(!user){toast('Pick your name first!','err');return;}isSup=false;isDir=false;if(!dbProfiles[user]){openPfpModal(false);}else{launch();}}
+function loginRobbie(){user='Robbie';isSup=false;isDir=false;if(!dbProfiles['Robbie']){openPfpModal(false);}else{launch();}}
+function showPin(mode){pinMode=mode;document.getElementById('pin-label').textContent='Lloyd — Management PIN';document.getElementById('planter-section').style.display='none';document.getElementById('pin-section').style.display='block';pinBuf='';updDots();}
+function hidePin(){document.getElementById('planter-section').style.display='block';document.getElementById('pin-section').style.display='none';pinBuf='';document.getElementById('pin-err').textContent='';}
+function pp(d){if(pinBuf.length>=4)return;pinBuf+=d;updDots();if(pinBuf.length===4)setTimeout(checkPin,150);}
+function pinBack(){pinBuf=pinBuf.slice(0,-1);updDots();}
+function pinClear(){pinBuf='';updDots();document.getElementById('pin-err').textContent='';}
+function updDots(){for(let i=0;i<4;i++)document.getElementById('d'+i).classList.toggle('filled',i<pinBuf.length);}
+function checkPin(){
+  if(pinMode==='dir'&&pinBuf===LLOYD_PIN){user='Lloyd';isSup=true;isDir=true;document.getElementById('pin-err').textContent='';launch();}
+  else if(pinMode==='sup'&&pinBuf===PIN){user=SUPERVISOR;isSup=true;isDir=false;document.getElementById('pin-err').textContent='';launch();}
+  else{document.getElementById('pin-err').textContent='Incorrect PIN';pinBuf='';updDots();}
+}
+function launch(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-shell').style.display='block';
+  document.getElementById('badge-name').textContent=user;
+  const re=document.getElementById('badge-role');
+  if(isSup){
+    re.textContent='Management';re.className='badge-role';
+    document.getElementById('verify-tab-btn').classList.remove('hidden');
+    document.getElementById('command-tab-btn').classList.remove('hidden');
+    document.getElementById('p-pfg').style.display='flex';
+    document.getElementById('add-site-btn').classList.remove('hidden');
+    document.getElementById('p-btn').textContent='Confirm + Log Trees';
+    document.getElementById('quick-toggle-btn').style.display='block';
+    document.getElementById('jobs-tab-btn').classList.remove('hidden');
+    document.getElementById('job-mgmt-controls').style.display='block';
+    document.getElementById('w-rate-wrap').style.display='block';
+    document.getElementById('timesheet-tab-btn').classList.remove('hidden');
+    const sel=document.getElementById('p-person');
+    sel.innerHTML='<option value="">Select</option>'+CREW.map(n=>'<option>'+n+'</option>').join('');
+  } else {
+    re.textContent='Staff';re.className='badge-role staff';
+    document.getElementById('verify-tab-btn').classList.add('hidden');
+    document.getElementById('command-tab-btn').classList.add('hidden');
+    document.getElementById('jobs-tab-btn').classList.remove('hidden');
+    document.getElementById('p-pfg').style.display='none';
+    document.getElementById('add-site-btn').classList.add('hidden');
+    document.getElementById('p-btn').textContent='Submit for Verification';
+  }
+  ['p-date','s-date','w-date'].forEach(id=>document.getElementById(id).value=today());
+  buildLocs();buildCrewChecks();updPU();updWU();updHPfp();refreshUI();
+  loadJobs().then(()=>{renderLogJobStrip();if(document.querySelector('.tab-btn[data-tab="jobs"].active'))renderJobs();});
+}
+function updHPfp(){document.getElementById('hdr-pfp').innerHTML=pfpHtml(user,'sm');}
+function logout(){user=null;isSup=false;isDir=false;pinBuf='';document.getElementById('app-shell').style.display='none';document.getElementById('login-screen').style.display='flex';hidePin();document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelector('[data-tab="home"]').classList.add('active');document.getElementById('tab-home').classList.add('active');buildNames();}
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab==='home')renderHome();
+    if(btn.dataset.tab==='calendar')renderCal();
+    if(btn.dataset.tab==='stats'){renderStats();renderBoard();}
+    if(btn.dataset.tab==='verify')renderVerify();
+    if(btn.dataset.tab==='sites')renderSites();
+    if(btn.dataset.tab==='command')renderCommand();
+    if(btn.dataset.tab==='jobs'){loadJobs().then(renderJobs);}
+    if(btn.dataset.tab==='timesheet')renderTimesheet();
+    if(btn.dataset.tab==='log'){loadJobs().then(()=>renderLogJobStrip());}
+  });
+});
+
+function switchJT(jt){document.querySelectorAll('.jt-btn').forEach(b=>b.classList.remove('ap','as','aw'));document.querySelector('[data-jt="'+jt+'"]').classList.add(jt==='plant'?'ap':jt==='spray'?'as':'aw');document.querySelectorAll('.job-form').forEach(f=>f.classList.remove('active'));document.getElementById('jf-'+jt).classList.add('active');}
+function updPU(){
+  const v=document.getElementById('p-jtype').value;
+  document.getElementById('p-ulbl').textContent=v==='beatup_h'?'Hectares':v==='vole'?'Total Guards (squad)':'Trees Planted';
+  document.getElementById('p-sfx').textContent=v==='beatup_h'?'HA':v==='vole'?'TOTAL':'TREES';
+  const showCrew=v==='vole'||v==='beatup_h';
+  document.getElementById('p-crew-wrap').style.display=showCrew?'block':'none';
+}
+function updWU(){const v=document.getElementById('w-utype').value;document.getElementById('w-vgrp').style.display=v==='day'?'none':'flex';document.getElementById('w-sfx').textContent=v==='ha'?'HA':v==='metres'?'M':'UNITS';}
+function buildLocs(){['p-loc','s-loc','w-loc'].forEach(id=>{const sel=document.getElementById(id);const cur=sel.value;sel.innerHTML='<option value="">Select Location</option>'+dbLocs.map(l=>'<option'+(cur===l?' selected':'')+'>'+l+'</option>').join('')+'<option value="__new__">+ Add New Location</option>';});}
+function lcCh(pfx){const v=document.getElementById(pfx+'-loc').value;const w=document.getElementById('nlw-'+pfx);if(w)w.style.display=v==='__new__'?'block':'none';}
+function buildCrewChecks(){['screw','wcrew','pcrew'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=CREW.map(n=>'<div class="crew-btn" data-n="'+n+'" onclick="togCrew(this)">'+pfpHtml(n,'sm')+n+'</div>').join('');});}
+function togCrew(el){el.classList.toggle('on');}
+function getCrew(id){return[...document.querySelectorAll('#'+id+' .crew-btn.on')].map(e=>e.dataset.n);}
+
+async function addLoc(pfx){const nl=document.getElementById('nli-'+pfx).value.trim();if(!nl)return null;await sb.from('locations').upsert({name:nl});if(!dbLocs.includes(nl))dbLocs.push(nl);buildLocs();document.getElementById('nlw-'+pfx).style.display='none';return nl;}
+
+async function subPlant(){
+  const date=document.getElementById('p-date').value;
+  const person=isSup?document.getElementById('p-person').value:user;
+  const jtype=document.getElementById('p-jtype').value;
+  const count=parseFloat(document.getElementById('p-count').value);
+  let loc=document.getElementById('p-loc').value;
+  if(loc==='__new__'){loc=await addLoc('p');if(!loc)return;}
+  const notes=document.getElementById('p-notes').value.trim();
+  if(!date||!person||isNaN(count)||count<1){toast('Fill in all fields!','err');return;}
+  const btn=document.getElementById('p-btn');btn.disabled=true;
+  // For non-tree jobs (vole guards, beat-up ha) use work_entries instead
+  if(jtype==='vole'||jtype==='beatup_h'){
+    const unitType=jtype==='beatup_h'?'ha':'count';
+    const crew=getCrew('pcrew');
+    const finalCrew=crew.length>0?crew:[person];
+    const{error}=await sb.from('work_entries').insert({
+      date,job_type:jtype,unit_type:unitType,unit_value:count,
+      loc:loc||null,crew:finalCrew,notes:notes||null,
+      status:isSup?'approved':'pending',submitted_by:user
+    });
+    btn.disabled=false;
+    if(error){toast('Error saving: '+error.message,'err');console.error(error);return;}
+    document.getElementById('p-count').value='';document.getElementById('p-notes').value='';
+    document.querySelectorAll('#pcrew .crew-btn').forEach(el=>el.classList.remove('on'));
+    const label=jtype==='vole'?count.toLocaleString()+' VGs ('+finalCrew.length+' crew)':count+'ha beat up';
+    isSup?toast(label+' logged','ok'):toast(label+' submitted','ok');
+    return;
+  }
+  const jobId = document.getElementById('p-job') ? document.getElementById('p-job').value : null;
+  const insertData = {
+    date, person, trees: Math.round(count), loc: loc||null,
+    notes: notes||null, status: isSup?'approved':'pending',
+    submitted_by: user
+  };
+  if (jobId) insertData.job_id = parseInt(jobId);
+  const{error}=await sb.from('entries').insert(insertData);
+  btn.disabled=false;
+  if(error){toast('Error saving: '+error.message,'err');console.error(error);return;}
+  document.getElementById('p-count').value='';document.getElementById('p-notes').value='';
+  isSup?toast(count+' trees logged for '+person,'ok'):toast(count+' trees submitted','ok');
+}
+async function subSpray(){
+  const date=document.getElementById('s-date').value;
+  const chem=document.getElementById('s-chem').value;
+  const ha=parseFloat(document.getElementById('s-ha').value);
+  let loc=document.getElementById('s-loc').value;
+  if(loc==='__new__'){loc=await addLoc('s');if(!loc)return;}
+  const crew=getCrew('screw');
+  const notes=document.getElementById('s-notes').value.trim();
+  if(!date||isNaN(ha)||ha<=0){toast('Enter date and hectares!','err');return;}
+  if(!crew.length){toast('Select crew present!','err');return;}
+  const btn=document.getElementById('s-btn');btn.disabled=true;
+  const{error}=await sb.from('spray_entries').insert({date,chemical:chem,hectares:ha,loc:loc||null,crew,notes:notes||null,status:isSup?'approved':'pending',submitted_by:user});
+  btn.disabled=false;
+  if(error){toast('Error saving','err');return;}
+  document.getElementById('s-ha').value='';document.getElementById('s-notes').value='';
+  document.querySelectorAll('#screw .crew-btn').forEach(el=>el.classList.remove('on'));
+  toast(ha+'ha '+chem+' — '+(ha/crew.length).toFixed(2)+'ha each','blue');
+}
+async function subWork(){
+  const date=document.getElementById('w-date').value;
+  const jtype=document.getElementById('w-jtype').value;
+  const utype=document.getElementById('w-utype').value;
+  const uval=utype==='day'?1:parseFloat(document.getElementById('w-val').value);
+  let loc=document.getElementById('w-loc').value;
+  if(loc==='__new__'){loc=await addLoc('w');if(!loc)return;}
+  const crew=getCrew('wcrew');
+  const notes=document.getElementById('w-notes').value.trim();
+  const rateEl = document.getElementById('w-rate');
+  const manualRate = rateEl && rateEl.value ? parseFloat(rateEl.value) : null;
+  if(!date){toast('Enter a date!','err');return;}
+  if(!crew.length){toast('Select crew!','err');return;}
+  if(utype!=='day'&&(isNaN(uval)||uval<=0)){toast('Enter a value!','err');return;}
+  if(isSup&&utype==='day'&&(!manualRate||isNaN(manualRate)||manualRate<=0)){toast('Enter a rate (£) for day rate!','err');document.getElementById('w-rate').focus();return;}
+  const btn=document.getElementById('w-btn');btn.disabled=true;
+  const{error}=await sb.from('work_entries').insert({
+    date, job_type:jtype, unit_type:utype, unit_value:uval,
+    loc:loc||null, crew, notes:notes||null,
+    status:isSup?'approved':'pending', submitted_by:user,
+    rate_override: manualRate
+  });
+  btn.disabled=false;
+  if(error){toast('Error saving','err');return;}
+  document.getElementById('w-val').value='';document.getElementById('w-notes').value='';
+  document.querySelectorAll('#wcrew .crew-btn').forEach(el=>el.classList.remove('on'));
+  const rateElC = document.getElementById('w-rate');
+  if (rateElC) rateElC.value = '';
+  toast((JL[jtype]||jtype)+' logged','ok');
+}
+
+function refreshUI(){renderHome();renderEntryLists();updateBadge();const at=document.querySelector('.tab-btn.active')?.dataset?.tab;if(at==='calendar')renderCal();if(at==='stats'){renderStats();renderBoard();}if(at==='verify')renderVerify();if(at==='sites')renderSites();if(at==='command')renderCommand();}
+function updateBadge(){const n=dbE.filter(e=>e.status==='pending').length+dbSp.filter(e=>e.status==='pending').length+dbWk.filter(e=>e.status==='pending').length;const b=document.getElementById('nbadge');b.textContent=n;b.style.display=n>0?'inline-block':'none';}
+
+function renderHome(){
+  const d=dbE.filter(e=>e.status==='approved');
+  const total=d.reduce((s,e)=>s+e.trees,0);
+  const td=today();
+  const todayT=d.filter(e=>e.date===td).reduce((s,e)=>s+e.trees,0);
+  const wk=new Date();wk.setDate(wk.getDate()-7);
+  const wkT=d.filter(e=>e.date>=wk.toISOString().split('T')[0]).reduce((s,e)=>s+e.trees,0);
+  document.getElementById('home-total').textContent=total.toLocaleString();
+  document.getElementById('home-today').textContent=todayT.toLocaleString();
+  document.getElementById('home-week').textContent=wkT.toLocaleString();
+  document.getElementById('home-days').textContent=new Set(d.map(e=>e.date)).size;
+  document.getElementById('home-pend').textContent=dbE.filter(e=>e.status==='pending').length+dbSp.filter(e=>e.status==='pending').length+dbWk.filter(e=>e.status==='pending').length;
+  document.getElementById('home-ha').textContent=dbSp.filter(e=>e.status==='approved').reduce((s,e)=>s+parseFloat(e.hectares||0),0).toFixed(1);
+  document.getElementById('home-work').textContent=dbWk.filter(e=>e.status==='approved').length;
+  const todayE=d.filter(e=>e.date===td);
+  const el=document.getElementById('home-crew');
+  if(!todayE.length){el.innerHTML='<div class="no-data">No approved planting today</div>';return;}
+  const byP={};todayE.forEach(e=>{byP[e.person]=(byP[e.person]||0)+e.trees;});
+  el.innerHTML=Object.entries(byP).sort((a,b)=>b[1]-a[1]).map(([n,t])=>'<div class="entry-row pr">'+pfpHtml(n,'md')+'<div class="er-who">'+n+'</div><div class="er-val">'+t+'</div><div class="er-loc">trees today</div></div>').join('');
+}
+
+function renderEntryLists(){
+  const pe=document.getElementById('p-entries');
+  let pd=isSup?dbE:dbE.filter(e=>e.person===user);
+  pe.innerHTML=pd.slice(0,15).map(e=>'<div class="entry-row pr"><div class="er-date">'+fmtD(e.date)+'</div>'+(isSup?'<div class="er-who">'+e.person+'</div>':'')+
+    '<div class="er-val">'+e.trees+'</div><div class="er-loc">'+(e.loc||'')+(e.job_type?' · '+(JL[e.job_type]||e.job_type):'')+'</div><span class="pill pill-'+e.status+'">'+e.status+'</span></div>').join('')||'<div class="no-data">No planting entries</div>';
+  document.getElementById('s-entries').innerHTML=dbSp.slice(0,8).map(e=>'<div class="entry-row sr"><div class="er-date">'+fmtD(e.date)+'</div><div class="er-val bv">'+parseFloat(e.hectares).toFixed(1)+'</div><div class="er-loc">'+(e.loc||'—')+' · '+e.chemical+'</div><span class="pill pill-'+e.status+'">'+e.status+'</span></div>').join('')||'<div class="no-data">No spray entries</div>';
+  document.getElementById('w-entries').innerHTML=dbWk.slice(0,8).map(e=>'<div class="entry-row wr"><div class="er-date">'+fmtD(e.date)+'</div><div class="er-loc">'+(JL[e.job_type]||e.job_type)+' · '+(e.loc||'—')+'</div><span class="pill pill-'+e.status+'">'+e.status+'</span></div>').join('')||'<div class="no-data">No other work entries</div>';
+}
+
+function renderBoard(){
+  const f=document.getElementById('lb-filter').value;
+  let d=dbE.filter(e=>e.status==='approved');
+  if(f==='week'){const x=new Date();x.setDate(x.getDate()-7);d=d.filter(e=>e.date>=x.toISOString().split('T')[0]);}
+  if(f==='month'){const x=new Date();x.setDate(1);d=d.filter(e=>e.date>=x.toISOString().split('T')[0]);}
+  const rows=CREW.map(n=>({n,t:d.filter(e=>e.person===n).reduce((s,e)=>s+e.trees,0)})).sort((a,b)=>b.t-a.t);
+  const max=rows[0]?.t||1;
+  document.getElementById('leaderboard').innerHTML=rows.map((r,i)=>'<div class="lb-row'+(i===0?' r1':i===1?' r2':i===2?' r3':'')+'"><div class="lb-rank">'+(i+1)+'</div>'+pfpHtml(r.n,'md')+'<div class="lb-name">'+r.n+'</div><div class="lb-bar-wrap"><div class="lb-bar" style="width:'+(r.t/max*100)+'%"></div></div><div class="lb-count">'+r.t.toLocaleString()+'</div><div class="lb-sub">trees</div></div>').join('');
+  const sa=dbSp.filter(e=>e.status==='approved');
+  const totalHa=sa.reduce((s,e)=>s+parseFloat(e.hectares||0),0);
+  const byChem={};sa.forEach(e=>{byChem[e.chemical]=(byChem[e.chemical]||0)+parseFloat(e.hectares||0);});
+  const byP={};sa.forEach(e=>{const c=Array.isArray(e.crew)?e.crew:[];const sh=c.length>0?parseFloat(e.hectares)/c.length:0;c.forEach(n=>{byP[n]=(byP[n]||0)+sh;});});
+  document.getElementById('spray-summary').innerHTML=sa.length?
+    '<div class="spray-sum-grid">'+
+    '<div class="spray-stat"><div class="spray-stat-val">'+totalHa.toFixed(1)+'</div><div class="spray-stat-lbl">Total Ha</div></div>'+
+    '<div class="spray-stat"><div class="spray-stat-val">'+sa.length+'</div><div class="spray-stat-lbl">Sessions</div></div>'+
+    ['weevil','weed','other'].filter(c=>byChem[c]).map(c=>'<div class="spray-stat"><div class="spray-stat-val">'+byChem[c].toFixed(1)+'</div><div class="spray-stat-lbl">'+c.charAt(0).toUpperCase()+c.slice(1)+' Ha</div></div>').join('')+
+    '</div>'+
+    '<div style="font-family:var(--mono);font-size:7px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;">Per Operator</div>'+
+    Object.entries(byP).sort((a,b)=>b[1]-a[1]).map(([n,ha])=>'<div class="spray-op-row">'+pfpHtml(n,'sm')+'<div class="spray-op-name">'+n+'</div><div class="spray-op-val">'+ha.toFixed(1)+'</div><div class="spray-op-sub">ha</div></div>').join('')
+    :'<div class="no-data">No spray sessions logged yet</div>';
+}
+
+function renderStats(){
+  const d=dbE.filter(e=>e.status==='approved');
+  const tot=d.reduce((s,e)=>s+e.trees,0);
+  const days=new Set(d.map(e=>e.date)).size;
+  document.getElementById('global-stats').innerHTML=
+    '<div class="stat-card"><div class="stat-card-val">'+tot.toLocaleString()+'</div><div class="stat-card-lbl">Trees Total</div></div>'+
+    '<div class="stat-card"><div class="stat-card-val">'+days+'</div><div class="stat-card-lbl">Days Active</div></div>'+
+    '<div class="stat-card"><div class="stat-card-val">'+(days?Math.round(tot/days):0)+'</div><div class="stat-card-lbl">Avg/Day</div></div>'+
+    '<div class="stat-card"><div class="stat-card-val">'+d.reduce((m,e)=>e.trees>m?e.trees:m,0)+'</div><div class="stat-card-lbl">Best Entry</div></div>';
+  const sa=dbSp.filter(e=>e.status==='approved');
+  document.getElementById('person-stats').innerHTML=CREW.map(n=>{
+    const e=d.filter(x=>x.person===n);
+    const t=e.reduce((s,x)=>s+x.trees,0);
+    const dy=new Set(e.map(x=>x.date)).size;
+    const att=days?Math.round(dy/days*100):0;
+    const spHa=sa.reduce((s,x)=>{const c=Array.isArray(x.crew)?x.crew:[];return s+(c.includes(n)?parseFloat(x.hectares)/c.length:0);},0);
+    return '<div class="ps-card"><div class="ps-header">'+pfpHtml(n,'lg')+'<div><div class="ps-name">'+n+'</div></div></div>'+
+      '<div class="ps-row"><span class="ps-k">Trees</span><span class="ps-v big">'+t.toLocaleString()+'</span></div>'+
+      '<div class="ps-row"><span class="ps-k">Days Out</span><span class="ps-v">'+dy+'</span></div>'+
+      '<div class="ps-row"><span class="ps-k">Attendance</span><span class="ps-v">'+att+'%</span></div>'+
+      '<div class="attend-bar-wrap"><div class="attend-bar" style="width:'+att+'%"></div></div>'+
+      '<div class="ps-row" style="margin-top:3px"><span class="ps-k">Ha Sprayed</span><span class="ps-v">'+spHa.toFixed(1)+'</span></div>'+
+      '<div class="ps-row"><span class="ps-k">Avg/Day</span><span class="ps-v">'+(dy?Math.round(t/dy):0)+'</span></div></div>';
+  }).join('');
+}
+
+let calY,calM,selDate=null;
+function initCal(){const n=new Date();calY=n.getFullYear();calM=n.getMonth();}
+function calShift(n){calM+=n;if(calM>11){calM=0;calY++;}if(calM<0){calM=11;calY--;}renderCal();}
+function renderCal(){
+  document.getElementById('cal-title').textContent=MONTHS[calM]+' '+calY;
+  const d=dbE.filter(e=>e.status==='approved');
+  const sums={};d.forEach(e=>{sums[e.date]=(sums[e.date]||0)+e.trees;});
+  const first=new Date(calY,calM,1).getDay();
+  const days=new Date(calY,calM+1,0).getDate();
+  const td=today();
+  let h=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>'<div class="cal-day-hdr">'+x+'</div>').join('');
+  for(let i=0;i<first;i++)h+='<div class="cal-day empty"></div>';
+  for(let dd=1;dd<=days;dd++){
+    const ds=calY+'-'+String(calM+1).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
+    const s=sums[ds]||0;
+    const hasSpray=dbSp.some(e=>e.date===ds&&e.status==='approved');
+    const hasWork=dbWk.some(e=>e.date===ds&&e.status==='approved'&&e.job_type!=='site_file');
+    const hasPend=(dbE.some(e=>e.date===ds&&e.status==='pending')||dbSp.some(e=>e.date===ds&&e.status==='pending')||dbWk.some(e=>e.date===ds&&e.status==='pending'));
+    const hasData=s>0||hasSpray||hasWork||hasPend;
+    const cls=['cal-day',ds===td?'today':'',hasData?'has-data':'',ds===selDate?'selected':''].filter(Boolean).join(' ');
+    const dots=(hasSpray||hasWork||hasPend)?'<div class="cal-day-dots">'+(hasSpray?'<div class="cal-dot sp"></div>':'')+(hasWork?'<div class="cal-dot wk"></div>':'')+(hasPend?'<div class="cal-dot" style="background:var(--orange);width:5px;height:5px;border-radius:50%"></div>':'')+'</div>':'';
+    h+='<div class="'+cls+'" onclick="calSel(\''+ds+'\')" ><div class="cal-day-num">'+dd+'</div>'+(s>0?'<div class="cal-day-trees">'+s+'</div>':'')+dots+'</div>';
+  }
+  document.getElementById('cal-grid').innerHTML=h;
+}
+function calSel(ds){
+  selDate=ds;renderCal();
+  const d=dbE.filter(e=>e.date===ds&&e.status==='approved');
+  const sp=dbSp.filter(e=>e.date===ds&&e.status==='approved');
+  const wk=dbWk.filter(e=>e.date===ds&&e.status==='approved');
+  const el=document.getElementById('cal-detail');
+  const parts=ds.split('-');
+  const title=parseInt(parts[2])+' '+MONTHS[parseInt(parts[1])-1]+' '+parts[0];
+  if(!d.length&&!sp.length&&!wk.length){el.innerHTML='<div class="cal-detail-date">'+title+'</div><div class="no-data">No approved entries</div>';return;}
+  const tot=d.reduce((s,e)=>s+e.trees,0);
+  el.innerHTML='<div class="cal-detail-date">'+title+(tot?' — '+tot.toLocaleString()+' trees':'')+'</div>'+
+    d.map(e=>'<div class="cal-entry"><div class="cal-entry-name">'+e.person+'</div>'+(e.loc?'<div class="cal-entry-loc">'+e.loc+'</div>':'')+'<div class="cal-entry-val">'+e.trees+'</div></div>').join('')+
+    sp.map(e=>'<div class="cal-entry se">'+
+      '<div class="cal-entry-name">💧 '+e.chemical.charAt(0).toUpperCase()+e.chemical.slice(1)+' Spray</div>'+
+      '<div class="cal-entry-loc">'+(e.loc||'—')+'</div>'+
+      '<div style="font-size:10px;color:var(--muted);padding:2px 0;">'+(Array.isArray(e.crew)?e.crew.join(', '):'')+'</div>'+
+      '<div class="cal-entry-val bv">'+parseFloat(e.hectares).toFixed(1)+'ha</div>'+
+    '</div>').join('')+
+    wk.map(e=>{
+      const isFile = e.job_type==='site_file';
+      const icon = isFile ? '📎' : '🔧';
+      const label = JL[e.job_type]||e.job_type;
+      const val = isFile ? e.unit_value+' file'+(e.unit_value>1?'s':'') : e.unit_type==='day'?'Day':(e.unit_value+' '+e.unit_type);
+      const notes = isFile&&e.notes ? '<div style="font-size:10px;color:var(--muted);padding:4px 9px 8px;font-style:italic">'+e.notes+'</div>' : '';
+      return '<div class="cal-entry we"><div class="cal-entry-name">'+icon+' '+label+'</div><div class="cal-entry-loc">'+(e.loc||'—')+'</div><div class="cal-entry-val gv">'+val+'</div></div>'+notes;
+    }).join('');
+}
+
+function renderVerify(){
+  const pP=dbE.filter(e=>e.status==='pending');
+  const pS=dbSp.filter(e=>e.status==='pending');
+  const pW=dbWk.filter(e=>e.status==='pending');
+  let h='';
+  h+=pP.map(e=>'<div class="pend-card"><div class="pc-info"><div class="pc-name">'+e.person+'</div><div class="pc-meta">'+fmtD(e.date)+(e.loc?' · '+e.loc:'')+(e.job_type?' · '+(JL[e.job_type]||e.job_type):'')+'</div></div><div><div class="pc-val">'+e.trees+'</div><div class="pc-val-lbl">Trees</div></div><div class="pc-actions"><button class="approve-btn" onclick="actE('+e.id+',\'approved\',\'plant\')">✓</button><button class="reject-btn" onclick="actE('+e.id+',\'rejected\',\'plant\')">✗</button></div></div>').join('');
+  h+=pS.map(e=>'<div class="pend-card sp"><div class="pc-info"><div class="pc-name">💧 '+e.chemical+'</div><div class="pc-meta">'+fmtD(e.date)+(e.loc?' · '+e.loc:'')+(Array.isArray(e.crew)?' · '+e.crew.join(', '):'')+'</div></div><div><div class="pc-val bv">'+parseFloat(e.hectares).toFixed(1)+'</div><div class="pc-val-lbl">HA</div></div><div class="pc-actions"><button class="approve-btn" onclick="actE('+e.id+',\'approved\',\'spray\')">✓</button><button class="reject-btn" onclick="actE('+e.id+',\'rejected\',\'spray\')">✗</button></div></div>').join('');
+  h+=pW.map(e=>'<div class="pend-card wp"><div class="pc-info"><div class="pc-name">🔧 '+(JL[e.job_type]||e.job_type)+'</div><div class="pc-meta">'+fmtD(e.date)+(e.loc?' · '+e.loc:'')+'</div></div><div><div class="pc-val gv">'+(e.unit_type==='day'?'Day':e.unit_value)+'</div><div class="pc-val-lbl">'+(e.unit_type==='day'?'Rate':e.unit_type)+'</div></div><div class="pc-actions"><button class="approve-btn" onclick="actE('+e.id+',\'approved\',\'work\')">✓</button><button class="reject-btn" onclick="actE('+e.id+',\'rejected\',\'work\')">✗</button></div></div>').join('');
+  document.getElementById('pending-list').innerHTML=h||'<div class="no-data">All clear</div>';
+  const act=[
+    ...dbE.filter(e=>e.status!=='pending').slice(0,8).map(e=>({...e,_t:'plant'})),
+    ...dbSp.filter(e=>e.status!=='pending').slice(0,4).map(e=>({...e,_t:'spray'})),
+    ...dbWk.filter(e=>e.status!=='pending').slice(0,4).map(e=>({...e,_t:'work'}))
+  ].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,12);
+  document.getElementById('actioned-list').innerHTML=act.length?
+    '<table class="log-tbl"><thead><tr><th>Date</th><th>Type</th><th>Detail</th><th>Status</th><th></th></tr></thead><tbody>'+
+    act.map(e=>{
+      const typ=e._t==='plant'?'🌲':e._t==='spray'?'💧':'🔧';
+      const det=e._t==='plant'?e.trees+' trees ('+e.person+')':e._t==='spray'?e.hectares+'ha '+e.chemical:(JL[e.job_type]||e.job_type);
+      return '<tr><td>'+fmtD(e.date)+'</td><td>'+typ+'</td><td>'+det+'</td><td><span class="pill pill-'+e.status+'">'+e.status+'</span></td><td><button onclick="delEntry('+e.id+',\''+e._t+'\')" class="del-entry-btn">del</button></td></tr>';
+    }).join('')+'</tbody></table>'
+    :'<div class="no-data">Nothing actioned yet</div>';
+}
+async function delEntry(id, type) {
+  if (!confirm('Delete this entry permanently?')) return;
+  const tbl = type==='plant'?'entries':type==='spray'?'spray_entries':'work_entries';
+  const {error} = await sb.from(tbl).delete().eq('id', id);
+  if (error) { toast('Error deleting', 'err'); return; }
+  if (type==='plant') dbE=dbE.filter(e=>e.id!==id);
+  else if (type==='spray') dbSp=dbSp.filter(e=>e.id!==id);
+  else dbWk=dbWk.filter(e=>e.id!==id);
+  renderVerify(); refreshUI();
+  toast('Entry deleted', 'ok');
+}
+
+async function actE(id,status,type){
+  const tbl=type==='plant'?'entries':type==='spray'?'spray_entries':'work_entries';
+  await sb.from(tbl).update({status,verified_by:user}).eq('id',id);
+  toast(status==='approved'?'Approved':'Rejected',status==='rejected'?'err':'ok');
+}
+
+function renderSites(){
+  const el=document.getElementById('sites-list');
+  el.innerHTML=dbLocs.map(name=>{
+    const trees=dbE.filter(e=>e.loc===name&&e.status==='approved').reduce((s,e)=>s+e.trees,0);
+    const ha=dbSp.filter(e=>e.loc===name&&e.status==='approved').reduce((s,e)=>s+parseFloat(e.hectares||0),0);
+    const k=name.replace(/\s/g,'_');
+    return '<div class="site-card" id="sc-'+k+'">'+
+      '<div class="site-hdr" onclick="toggleSite(\''+name+'\')">'+
+        '<div style="flex:1"><div class="site-name">'+name+'</div>'+
+        '<div class="site-meta-txt">'+trees.toLocaleString()+' trees'+(ha>0?' · '+ha.toFixed(1)+'ha sprayed':'')+'</div></div>'+
+        '<span class="site-chev">›</span></div>'+
+      '<div class="site-body" id="sb-'+k+'">'+
+        '<div class="wx-loading" id="wx-'+k+'">// Fetching conditions...</div>'+
+      '</div></div>';
+  }).join('');
+}
+async function toggleSite(name){
+  const k=name.replace(/\s/g,'_');
+  const card=document.getElementById('sc-'+k);
+  const body=document.getElementById('sb-'+k);
+  const loader=document.getElementById('wx-'+k);
+  const isOpen=card.classList.contains('open');
+  document.querySelectorAll('.site-card').forEach(c=>c.classList.remove('open'));
+  if(isOpen)return;
+  card.classList.add('open');
+  if(!loader)return;
+  const si=dbSD[name];
+  const mapBtn=si?.map_url?'<a class="map-btn" href="'+si.map_url+'" target="_blank">📍 Open in Avenza</a>':'<span class="map-btn nomap">No map attached</span>';
+  const dirBtn=si?.lat&&si?.lon?'<a class="map-btn" href="https://www.google.com/maps/dir/?api=1&destination='+si.lat+','+si.lon+'" target="_blank" style="background:#1a2a3a;border-color:#5a8ab0;">🧭 Directions</a>':'';
+  const notesHtml=si?.notes?'<div style="font-size:11px;color:var(--muted);margin-top:6px;font-style:italic">'+si.notes+'</div>':'';
+  const trees=dbE.filter(e=>e.loc===name&&e.status==='approved').reduce((s,e)=>s+e.trees,0);
+  const ha=dbSp.filter(e=>e.loc===name&&e.status==='approved').reduce((s,e)=>s+parseFloat(e.hectares||0),0);
+  const sess=dbWk.filter(e=>e.loc===name&&e.status==='approved').length;
+    // Load files from storage
+  const siteFiles = await getSiteFiles(name);
+  let sortedFiles = [...siteFiles];
+  const sortKey = window['_filesSort_'+k] || 'date';
+  if (sortKey === 'name') sortedFiles.sort((a,b)=>a.name.localeCompare(b.name));
+  else sortedFiles.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+
+  const fileHtml = siteFiles.length ?
+    '<div class="site-files-header">'+
+      '<div class="site-files-title">Site Files</div>'+
+      '<button class="files-sort" onclick="toggleFileSort(\'' + k + '\',\'' + name + '\')">Sort: '+sortKey+'</button>'+
+    '</div>'+
+    sortedFiles.map(f => {
+      const cleanName = f.name.replace(/^\d+_/,'');
+      const url = sb.storage.from('site-files').getPublicUrl(name.replace(/\s/g,'_')+'/'+f.name).data.publicUrl;
+      const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(f.name);
+      const isPdf = f.name.endsWith('.pdf');
+      const icon = isPdf ? '📄' : isImg ? '🖼️' : '📎';
+      const fid = 'fp-'+k+'-'+f.name.replace(/[^a-z0-9]/gi,'');
+      const dateStr = f.updated_at ? new Date(f.updated_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '';
+      // Build preview section
+      let previewHtml = '';
+      if (isImg) {
+        previewHtml = '<div class="site-file-preview" id="'+fid+'"><img src="'+url+'" loading="lazy" style="width:100%;border-radius:3px;border:1px solid var(--border)"/></div>';
+      } else if (isPdf) {
+        previewHtml = '<div class="site-file-preview" id="'+fid+'"><div class="pdf-preview">📄 '+cleanName+'<br/><a class="site-file-btn view" href="'+url+'" target="_blank" style="display:inline-block;margin-top:8px">Open PDF</a></div></div>';
+      }
+      return '<div class="site-file-row">'+
+        '<div class="site-file-hdr" onclick="toggleFilePreview(\''+fid+'\')" style="cursor:pointer">'+
+          '<span class="site-file-icon">'+icon+'</span>'+
+          '<span class="site-file-name">'+cleanName+'</span>'+
+          (dateStr?'<span class="site-file-date">'+dateStr+'</span>':'')+
+          '<div class="site-file-actions">'+
+            '<a class="site-file-btn view" href="'+url+'" target="_blank" onclick="event.stopPropagation()">Open</a>'+
+            '<button class="site-file-btn del" onclick="event.stopPropagation();delSiteFile(\''+name+'\',\''+f.name+'\',this.closest(\'.site-file-row\'))">Del</button>'+
+          '</div>'+
+        '</div>'+
+        previewHtml+
+      '</div>';
+    }).join('')
+    : '';
+  const statsHtml='<div class="wx-site-stats"><div class="wx-s"><div class="wx-s-val">'+trees.toLocaleString()+'</div><div class="wx-s-lbl">Trees</div></div><div class="wx-s"><div class="wx-s-val">'+ha.toFixed(1)+'</div><div class="wx-s-lbl">Ha Spray</div></div><div class="wx-s"><div class="wx-s-val">'+sess+'</div><div class="wx-s-lbl">Work Days</div></div></div>'+fileHtml;
+  if(!si?.lat||!si?.lon){body.innerHTML='<div class="site-actions">'+mapBtn+dirBtn+
+      '<label class="map-btn" style="cursor:pointer;background:#1a3a1a;border-color:var(--pine);color:var(--bright);" onclick="document.getElementById(\'quick-upload-'+k+'\').click()">+ Upload File</label>'+
+      '</div>'+
+      '<input type="file" id="quick-upload-'+k+'" data-site="'+name+'" style="display:none" multiple onchange="uploadSiteFiles(this.files,this.dataset.site)"/>'+
+      notesHtml+'<div class="wx-err" style="margin-top:8px">No coordinates — add via management panel</div>'+statsHtml;return;}
+  loader.textContent='// Fetching ground conditions...';
+  try{
+    let data=wxCache[name];
+    if(!data){
+      const url='https://api.open-meteo.com/v1/forecast?latitude='+si.lat+'&longitude='+si.lon+'&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max&timezone=Europe%2FLondon&forecast_days=8';
+      const res=await fetch(url,{mode:'cors'});
+      const json=await res.json();
+      if(!json.daily)throw new Error('No data');
+      wxCache[name]=json.daily;data=json.daily;
+    }
+    function db(i){const wx=wxi(data.weathercode[i]);return{wx,hi:Math.round(data.temperature_2m_max[i]),lo:Math.round(data.temperature_2m_min[i]),rain:parseFloat(data.precipitation_sum[i]).toFixed(1),wind:Math.round(data.windspeed_10m_max[i])};}
+    const tod=db(0),tom=db(1);
+    const week=[1,2,3,4,5,6,7].map(i=>{const d2=new Date(data.time[i]);const b=db(i);return '<div class="wx-day"><div class="wx-day-n">'+DAYS[d2.getDay()]+'</div><div class="wx-day-i">'+b.wx.e+'</div><div class="wx-day-h">'+b.hi+'°</div><div class="wx-day-l">'+b.lo+'°</div></div>';}).join('');
+    body.innerHTML='<div class="site-actions">'+mapBtn+dirBtn+
+      '<label class="map-btn" style="cursor:pointer;background:#1a3a1a;border-color:var(--pine);color:var(--bright);" onclick="document.getElementById(\'quick-upload-'+k+'\').click()">+ Upload File</label>'+
+      '</div>'+
+      '<input type="file" id="quick-upload-'+k+'" data-site="'+name+'" style="display:none" multiple onchange="uploadSiteFiles(this.files,this.dataset.site)"/>'+
+      notesHtml+
+      '<div class="wx-block today"><div class="wx-blk-lbl">// TODAY</div><div class="wx-row"><div class="wx-ico">'+tod.wx.e+'</div><div><div class="wx-desc">'+tod.wx.d+'</div><div class="wx-temps">'+tod.hi+'°<span class="wx-lo"> / '+tod.lo+'°</span></div></div></div><div class="wx-chips"><span class="wx-chip">💧 '+tod.rain+'mm</span><span class="wx-chip">💨 '+tod.wind+' km/h</span></div></div>'+
+      '<div class="wx-block tom"><div class="wx-blk-lbl">// TOMORROW</div><div class="wx-row"><div class="wx-ico">'+tom.wx.e+'</div><div><div class="wx-desc">'+tom.wx.d+'</div><div class="wx-temps">'+tom.hi+'°<span class="wx-lo"> / '+tom.lo+'°</span></div></div></div><div class="wx-chips"><span class="wx-chip">💧 '+tom.rain+'mm</span><span class="wx-chip">💨 '+tom.wind+' km/h</span></div></div>'+
+      '<div class="wx-week-lbl">// 7-DAY OUTLOOK</div><div class="wx-week">'+week+'</div>'+statsHtml;
+  }catch(e){body.innerHTML='<div class="site-actions">'+mapBtn+dirBtn+
+      '<label class="map-btn" style="cursor:pointer;background:#1a3a1a;border-color:var(--pine);color:var(--bright);" onclick="document.getElementById(\'quick-upload-'+k+'\').click()">+ Upload File</label>'+
+      '</div>'+
+      '<input type="file" id="quick-upload-'+k+'" data-site="'+name+'" style="display:none" multiple onchange="uploadSiteFiles(this.files,this.dataset.site)"/>'+
+      notesHtml+'<div class="wx-err">⚠️ Weather loads when deployed to server</div>'+statsHtml;}
+}
+
+let pickMap=null,pickMarker=null;
+function initPickMap(){
+  if(pickMap)return;
+  pickMap=L.map('site-pick-map',{zoomControl:true}).setView([56.8,-4.2],7);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:19,subdomains:'abcd'}).addTo(pickMap);
+  pickMap.on('click',e=>setPin(e.latlng.lat,e.latlng.lng));
+}
+function setPin(lat,lon){
+  if(pickMarker)pickMap.removeLayer(pickMarker);
+  pickMarker=L.marker([lat,lon],{icon:L.divIcon({html:'<div style="width:14px;height:14px;background:#8dc97c;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(141,201,124,.6)"></div>',iconSize:[14,14],iconAnchor:[7,7]})}).addTo(pickMap);
+  document.getElementById('sa-lat').value=lat.toFixed(6);
+  document.getElementById('sa-lon').value=lon.toFixed(6);
+  document.getElementById('coord-display').textContent='📍 '+lat.toFixed(5)+', '+lon.toFixed(5);
+}
+async function searchPlace(){
+  const q=document.getElementById('sa-search').value.trim();if(!q)return;
+  try{
+    const res=await fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(q)+'&limit=1',{headers:{'Accept-Language':'en'}});
+    const data=await res.json();
+    if(!data.length){toast('Place not found','err');return;}
+    const lat=parseFloat(data[0].lat),lon=parseFloat(data[0].lon);
+    pickMap.setView([lat,lon],13);setPin(lat,lon);
+  }catch(e){toast('Search failed','err');}
+}
+async function resolveW3W(){
+  const raw=document.getElementById('sa-w3w').value.trim().replace(/^\/{1,3}/,'');
+  if(!raw||raw.split('.').length!==3){toast('Enter 3 words e.g. filled.count.soap','err');return;}
+  try{
+    const res=await fetch('https://api.what3words.com/v3/convert-to-coordinates?words='+encodeURIComponent(raw)+'&key=YOUR_W3W_KEY');
+    const data=await res.json();
+    if(data.error){toast('W3W: '+data.error.message,'err');return;}
+    pickMap.setView([data.coordinates.lat,data.coordinates.lng],15);
+    setPin(data.coordinates.lat,data.coordinates.lng);
+  }catch(e){toast('W3W lookup failed','err');}
+}
+function toggleSiteForm(){
+  const f=document.getElementById('site-add-form');
+  const opening=f.style.display!=='block';
+  f.style.display=opening?'block':'none';
+  if(opening)setTimeout(()=>{initPickMap();pickMap.invalidateSize();},100);
+}
+async function delSiteFile(siteName, fileName, btn) {
+  if (!confirm('Delete ' + fileName.replace(/^\d+_/,'') + '?')) return;
+  const path = siteName.replace(/\s/g,'_') + '/' + fileName;
+  await sb.storage.from('site-files').remove([path]);
+  btn.closest('.site-file-row').remove();
+  toast('File deleted', 'ok');
+}
+
+async function uploadSiteFiles(files, siteName) {
+  if (!siteName) siteName = document.getElementById('sa-name').value.trim();
+  if (!siteName) { toast('Enter site name first', 'err'); return; }
+  const prog = document.getElementById('upload-progress');
+  for (const file of files) {
+    prog.textContent = 'Uploading ' + file.name + '...';
+    const path = siteName.replace(/\s/g,'_') + '/' + Date.now() + '_' + file.name;
+    const { error } = await sb.storage.from('site-files').upload(path, file, { upsert: true });
+    if (error) { prog.textContent = 'Error: ' + error.message; return; }
+  }
+  prog.textContent = files.length + ' file(s) uploaded ✓';
+  // Log to calendar as a site record entry
+  await sb.from('work_entries').insert({
+    date: today(),
+    job_type: 'site_file',
+    unit_type: 'count',
+    unit_value: files.length,
+    loc: siteName,
+    crew: [user],
+    notes: Array.from(files).map(f=>f.name.replace(/^\d+_/,'')).join(', '),
+    status: 'approved',
+    submitted_by: user
+  });
+  setTimeout(() => { prog.textContent = ''; }, 3000);
+}
+
+function handleFileDrop(ev) {
+  ev.preventDefault();
+  document.getElementById('upload-zone').classList.remove('dragover');
+  uploadSiteFiles(ev.dataTransfer.files);
+}
+
+async function getSiteFiles(siteName) {
+  const { data, error } = await sb.storage.from('site-files').list(siteName.replace(/\s/g,'_'), { limit: 20 });
+  if (error || !data) return [];
+  return data;
+}
+
+async function saveSite(){
+  const name=document.getElementById('sa-name').value.trim();
+  const lat=parseFloat(document.getElementById('sa-lat').value);
+  const lon=parseFloat(document.getElementById('sa-lon').value);
+  const map_url=document.getElementById('sa-map').value.trim();
+  const notes=document.getElementById('sa-notes').value.trim();
+  if(!name){toast('Site needs a name!','err');return;}
+  await sb.from('locations').upsert({name,lat:lat||null,lon:lon||null,map_url:map_url||null,site_notes:notes||null});
+  if(!dbLocs.includes(name))dbLocs.push(name);
+  if(lat)dbSD[name]={lat,lon,map_url,notes};
+  buildLocs();
+  document.getElementById('site-add-form').style.display='none';
+  ['sa-name','sa-lat','sa-lon','sa-map','sa-notes','sa-search','sa-w3w'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('coord-display').textContent='Tap map or search to set location';
+  if(pickMarker){pickMap.removeLayer(pickMarker);pickMarker=null;}
+  toast('Site saved','ok');renderSites();
+}
+
+function renderCommand(){
+  const ap=dbE.filter(e=>e.status==='approved');
+  const sp=dbSp.filter(e=>e.status==='approved');
+  const pend=dbE.filter(e=>e.status==='pending').length+dbSp.filter(e=>e.status==='pending').length+dbWk.filter(e=>e.status==='pending').length;
+  const tot=ap.reduce((s,e)=>s+e.trees,0);
+  const totalHa=sp.reduce((s,e)=>s+parseFloat(e.hectares||0),0);
+  const wk=new Date();wk.setDate(wk.getDate()-7);
+  const wkT=ap.filter(e=>e.date>=wk.toISOString().split('T')[0]).reduce((s,e)=>s+e.trees,0);
+  const crew=CREW.map(n=>{
+    const e=ap.filter(x=>x.person===n);
+    const trees=e.reduce((s,x)=>s+x.trees,0);
+    const daysOut=new Set(e.map(x=>x.date)).size;
+    const spHa=sp.reduce((s,x)=>{const c=Array.isArray(x.crew)?x.crew:[];return s+(c.includes(n)?parseFloat(x.hectares)/c.length:0);},0);
+    return {n,trees,daysOut,avg:daysOut?Math.round(trees/daysOut):0,spHa};
+  }).sort((a,b)=>b.trees-a.trees);
+  const maxT=crew[0]?.trees||1;
+  document.getElementById('command-dash').innerHTML=
+    '<div class="cmd-grid">'+
+      '<div class="cmd-stat"><div class="cmd-val">'+tot.toLocaleString()+'</div><div class="cmd-lbl">Trees Total</div></div>'+
+      '<div class="cmd-stat gld"><div class="cmd-val">'+wkT.toLocaleString()+'</div><div class="cmd-lbl">This Week</div></div>'+
+      '<div class="cmd-stat blu"><div class="cmd-val">'+totalHa.toFixed(1)+'</div><div class="cmd-lbl">Ha Sprayed</div></div>'+
+      '<div class="cmd-stat alr"><div class="cmd-val">'+pend+'</div><div class="cmd-lbl">Pending</div></div>'+
+    '</div>'+
+    '<div class="section-title">Crew Output</div>'+
+    crew.map(c=>'<div class="cmd-crew-row">'+pfpHtml(c.n,'sm')+'<div style="flex:1"><div style="display:flex;align-items:baseline;gap:6px"><div class="cmd-crew-name">'+c.n+'</div><div class="cmd-crew-meta">'+c.daysOut+' days · '+c.avg+' avg · '+c.spHa.toFixed(1)+'ha sp</div></div><div class="cmd-bar-wrap"><div class="cmd-bar" style="width:'+Math.round(c.trees/maxT*100)+'%"></div></div></div><div class="cmd-trees">'+c.trees.toLocaleString()+'</div></div>').join('')+
+    '<div class="section-title">Coming Soon</div>'+
+    '<div class="cmd-coming"><div class="cmd-coming-lbl">Job Pricing</div><div class="cmd-coming-val">Revenue tracking — add when ready</div></div>'+
+    '<div class="cmd-coming"><div class="cmd-coming-lbl">Quotes &amp; Margins</div><div class="cmd-coming-val">Per-site job costing</div></div>';
+}
+
+const VERSES=[
+  {t:"For I know the plans I have for you, declares the Lord, plans to prosper you and not to harm you.",r:"Jeremiah 29:11"},
+  {t:"Commit to the Lord whatever you do, and he will establish your plans.",r:"Proverbs 16:3"},
+  {t:"The Lord will fight for you; you need only to be still.",r:"Exodus 14:14"},
+  {t:"Trust in the Lord with all your heart and lean not on your own understanding.",r:"Proverbs 3:5"},
+  {t:"I can do all this through him who gives me strength.",r:"Philippians 4:13"},
+  {t:"Be strong and courageous. Do not be afraid; the Lord your God will be with you wherever you go.",r:"Joshua 1:9"},
+  {t:"The Lord is my shepherd, I lack nothing.",r:"Psalm 23:1"},
+  {t:"In all things God works for the good of those who love him.",r:"Romans 8:28"},
+  {t:"Cast all your anxiety on him because he cares for you.",r:"1 Peter 5:7"},
+  {t:"He gives strength to the weary and increases the power of the weak.",r:"Isaiah 40:29"},
+  {t:"Work willingly at whatever you do, as though you were working for the Lord.",r:"Colossians 3:23"},
+  {t:"The plans of the diligent lead to profit.",r:"Proverbs 21:5"},
+  {t:"God is our refuge and strength, an ever-present help in trouble.",r:"Psalm 46:1"},
+  {t:"This is the day the Lord has made; let us rejoice and be glad in it.",r:"Psalm 118:24"},
+  {t:"The earth is the Lord's, and everything in it.",r:"Psalm 24:1"},
+  {t:"No weapon forged against you will prevail.",r:"Isaiah 54:17"},
+  {t:"He makes me lie down in green pastures, he leads me beside quiet waters.",r:"Psalm 23:2-3"},
+  {t:"Those who hope in the Lord will renew their strength. They will soar on wings like eagles.",r:"Isaiah 40:31"},
+  {t:"A generous person will prosper; whoever refreshes others will be refreshed.",r:"Proverbs 11:25"},
+  {t:"May the God of hope fill you with all joy and peace as you trust in him.",r:"Romans 15:13"},
+  {t:"The Lord bless you and keep you; the Lord make his face shine on you.",r:"Numbers 6:24-25"},
+  {t:"Let your light shine before others, that they may see your good deeds.",r:"Matthew 5:16"},
+];
+function loadVerse(){const d=Math.floor((new Date()-new Date(new Date().getFullYear(),0,0))/86400000);const v=VERSES[d%VERSES.length];document.getElementById('verse-text').textContent='"'+v.t+'"';document.getElementById('verse-ref').textContent='— '+v.r;}
+
+
+async function seedSiteCoords() {
+  // Best-guess coordinates — update in app when on site
+  const seeds = [
+    {name:'Lurg',         lat:56.30,    lon:-3.95,   notes:'Perth & Kinross area — update on site'},
+    {name:'Almont',       lat:56.50,    lon:-4.10,   notes:'Central Scotland — update on site'},
+    {name:'Eldridge',     lat:56.45,    lon:-4.30,   notes:'Central Scotland — update on site'},
+    {name:'Hartfield',    lat:56.40,    lon:-4.20,   notes:'Central Scotland — update on site'},
+    {name:'Loch Ree',     lat:53.53,    lon:-7.97,   notes:'Ireland midlands — update on site'},
+    {name:'Wester Cambushinnie', lat:56.237, lon:-3.939, notes:'Dunblane area, Stirlingshire'},
+    {name:'Kype',         lat:55.62,    lon:-3.97,   notes:'South Lanarkshire, near Strathaven'},
+    {name:'New Cumnock',  lat:55.397,   lon:-4.186,  notes:'East Ayrshire'},
+  ];
+  for (const s of seeds) {
+    // Only seed if no coords set yet
+    const existing = dbSD[s.name];
+    if (!existing || !existing.lat) {
+      await sb.from('locations').upsert({name:s.name, lat:s.lat, lon:s.lon, site_notes:s.notes});
+      dbSD[s.name] = {lat:s.lat, lon:s.lon, notes:s.notes};
+      if (!dbLocs.includes(s.name)) dbLocs.push(s.name);
+    }
+  }
+}
+
+// ── JOBS ──────────────────────────────────────────────────────────────────
+let dbJobs = [];
+
+async function loadJobs() {
+  const { data, error } = await sb.from('jobs').select('*').eq('status','active').order('deadline', { ascending: true });
+  if (!error) dbJobs = data || [];
+}
+
+
+
+const DISC_OPTS = [
+  {v:'straight', l:'Straight Planting', u:'trees'},
+  {v:'beatup_t', l:'Beat Up (per tree)', u:'trees'},
+  {v:'beatup_h', l:'Beat Up (per ha)', u:'ha'},
+  {v:'fertiliser', l:'Planting + Fert', u:'trees'},
+  {v:'vole', l:'Vole Guards', u:'units'},
+  {v:'stakes_install', l:'Stakes Install', u:'units'},
+  {v:'stakes_removal', l:'Stakes Removal', u:'days'},
+  {v:'weevil', l:'Weevil Spray', u:'ha'},
+  {v:'weed', l:'Weed Spray', u:'ha'},
+  {v:'brushcutting', l:'Brushcutting', u:'ha'},
+  {v:'chainsaw', l:'Chainsaw', u:'days'},
+  {v:'day', l:'Day Rate', u:'days'},
+  {v:'other', l:'Other', u:'units'},
+];
+
+function addJobDiscipline(disc) {
+  const container = document.getElementById('jb-disciplines');
+  const row = document.createElement('div');
+  row.className = 'disc-row';
+  const opts = DISC_OPTS.map(o => '<option value="'+o.v+'"'+(disc&&disc.type===o.v?' selected':'')+'>'+o.l+'</option>').join('');
+  row.innerHTML =
+    '<select class="disc-type" onchange="updDiscUnit(this)">'+opts+'</select>'+
+    '<input type="number" class="disc-target" placeholder="Qty" min="0" step="1" value="'+(disc?disc.target:'')+'" title="Target quantity"/>'+
+    '<input type="number" class="disc-rate" placeholder="£/unit" min="0" step="0.001" value="'+(disc?disc.rate:'')+'" title="Rate per unit"/>'+
+    '<button type="button" class="disc-del" onclick="this.parentElement.remove()">×</button>';
+  container.appendChild(row);
+  // Show unit hint
+  const sel = row.querySelector('.disc-type');
+  updDiscUnit(sel);
+}
+
+function updDiscUnit(sel) {
+  const opt = DISC_OPTS.find(o => o.v === sel.value);
+  const targetInput = sel.parentElement.querySelector('.disc-target');
+  if (targetInput && opt) targetInput.title = 'Target ('+opt.u+')';
+}
+
+function getJobDisciplines() {
+  return [...document.querySelectorAll('#jb-disciplines .disc-row')].map(row => ({
+    type: row.querySelector('.disc-type').value,
+    target: parseFloat(row.querySelector('.disc-target').value) || 0,
+    rate: parseFloat(row.querySelector('.disc-rate').value) || 0,
+  })).filter(d => d.target > 0);
+}
+function updJobForm() { /* unit type now derived from disciplines */ }
+function toggleJobForm() {
+  const f = document.getElementById('job-add-form');
+  const opening = f.style.display !== 'block';
+  f.style.display = opening ? 'block' : 'none';
+  if (opening) {
+    const sel = document.getElementById('jb-site');
+    sel.innerHTML = '<option value="">Select Site</option>' + dbLocs.map(l => '<option>' + l + '</option>').join('');
+    updJobForm();
+    // Add one discipline row by default
+    const container = document.getElementById('jb-disciplines');
+    if (!container.children.length) addJobDiscipline();
+  }
+}
+
+async function analyseJobMap(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const resultEl = document.getElementById('jb-ai-result');
+  const previewEl = document.getElementById('jb-map-preview');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div class="ai-spin">// Analysing map...</div>';
+
+  // Show preview
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      previewEl.innerHTML = '<img src="' + e.target.result + '" class="job-map-thumb"/>';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Convert to base64 for Claude
+  const b64 = await new Promise(res => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result.split(',')[1]);
+    r.readAsDataURL(file);
+  });
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: file.type || 'image/jpeg', data: b64 }
+            },
+            {
+              type: 'text',
+              text: 'This is a forestry job map for a tree planting or maintenance operation in Scotland/Ireland. Look at the map and extract what you can see. Return ONLY a JSON object with these fields: { "area_ha": number or null, "unit_type": "trees"|"ha"|"guards"|"stakes"|"days" or null, "estimated_target": number or null, "site_observations": "brief description of what you can see - boundaries, terrain, compartments etc", "flags": "any concerns visible - steep terrain, watercourses, access issues etc" }. If you cannot determine a value, use null. Do not include any text outside the JSON.'
+            }
+          ]
+        }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.content?.[0]?.text || '';
+    let parsed;
+    try { parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); }
+    catch(e) { throw new Error('Could not parse AI response'); }
+
+    // Auto-fill fields if empty
+    if (parsed.area_ha && !document.getElementById('jb-area').value) {
+      document.getElementById('jb-area').value = parsed.area_ha;
+    }
+    if (parsed.estimated_target && !document.getElementById('jb-target').value) {
+      document.getElementById('jb-target').value = parsed.estimated_target;
+    }
+    if (parsed.unit_type) {
+      document.getElementById('jb-unit').value = parsed.unit_type;
+    }
+
+    resultEl.innerHTML =
+      '<div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--bl);margin-bottom:6px;">// AI Map Analysis</div>' +
+      (parsed.site_observations ? '<div style="margin-bottom:5px;color:var(--cream);">' + parsed.site_observations + '</div>' : '') +
+      (parsed.flags ? '<div style="color:var(--orange);font-size:11px;">⚠️ ' + parsed.flags + '</div>' : '') +
+      (parsed.area_ha ? '<div style="color:var(--muted);font-size:11px;margin-top:4px;">Estimated area: ' + parsed.area_ha + 'ha</div>' : '') +
+      '<div style="color:var(--muted);font-size:10px;margin-top:6px;font-style:italic;">Review and adjust numbers above before creating job.</div>';
+
+  } catch(e) {
+    resultEl.innerHTML = '<div style="color:var(--orange);font-family:var(--mono);font-size:9px;">AI analysis unavailable — fill in details manually.</div>';
+  }
+}
+
+async function saveJob() {
+  const name = document.getElementById('jb-name').value.trim();
+  const site = document.getElementById('jb-site').value;
+  const deadline = document.getElementById('jb-deadline').value;
+  const disciplines = getJobDisciplines();
+  const firstDisc = disciplines[0] || null;
+  // Derive unit_type from first discipline
+  const unitMap = {straight:'trees',beatup_t:'trees',beatup_h:'ha',fertiliser:'trees',vole:'guards',stakes_install:'stakes',stakes_removal:'days',weevil:'ha',weed:'ha',brushcutting:'ha',chainsaw:'days',day:'days',other:'units'};
+  const unit_type = firstDisc ? (unitMap[firstDisc.type]||'units') : 'units';
+  const target = disciplines.reduce((s,d) => s + (d.target||0), 0) || 1;
+  const unit_type_val = document.getElementById('jb-unit').value;
+  const area_ha = unit_type_val === 'ha' ? target : (parseFloat(document.getElementById('jb-area').value) || null);
+  const notes = document.getElementById('jb-notes').value.trim();
+
+  if (!name) { toast('Job needs a name', 'err'); return; }
+  if (!target || isNaN(target)) { toast('Enter a target', 'err'); return; }
+
+  // Upload map if selected
+  let map_url = null;
+  const mapFile = document.getElementById('jb-map-file').files[0];
+  if (mapFile) {
+    const path = 'jobs/' + Date.now() + '_' + mapFile.name;
+    const { data: upData, error: upErr } = await sb.storage.from('site-files').upload(path, mapFile, { upsert: true });
+    if (!upErr) {
+      map_url = sb.storage.from('site-files').getPublicUrl(path).data.publicUrl;
+    }
+  }
+
+  const primaryDisc = firstDisc;
+  const { error } = await sb.from('jobs').insert({
+    name, site: site || null, unit_type, target, area_ha,
+    deadline: deadline || null, notes: notes || null, map_url,
+    status: 'active', created_by: user,
+    planting_type: primaryDisc ? primaryDisc.type : null,
+    rate_per_unit: primaryDisc ? primaryDisc.rate : null,
+    disciplines: disciplines.length ? JSON.stringify(disciplines) : null
+  });
+
+  if (error) { toast('Error saving: ' + error.message, 'err'); return; }
+
+  document.getElementById('job-add-form').style.display = 'none';
+  ['jb-name','jb-site','jb-deadline','jb-area','jb-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('jb-disciplines').innerHTML = '';
+  document.getElementById('jb-ai-result').style.display = 'none';
+  document.getElementById('jb-map-preview').innerHTML = '';
+  document.getElementById('jb-map-file').value = '';
+
+  await loadJobs();
+  renderJobs();
+  toast('Job created', 'ok');
+}
+
+function getJobProgress(job) {
+  // Only count entries logged against this specific job ID, or after job creation date
+  const jobStart = job.created_at ? job.created_at.split('T')[0] : '1970-01-01';
+  let logged = 0;
+  if (job.unit_type === 'trees') {
+    logged = dbE.filter(e => e.loc === job.site && e.status === 'approved' && (e.job_id === job.id || e.date >= jobStart)).reduce((s,e) => s + e.trees, 0);
+  } else if (job.unit_type === 'ha') {
+    logged = dbSp.filter(e => e.loc === job.site && e.status === 'approved' && e.date >= jobStart).reduce((s,e) => s + parseFloat(e.hectares||0), 0);
+  } else if (job.unit_type === 'guards' || job.unit_type === 'stakes') {
+    const jtype = job.unit_type === 'guards' ? 'vole' : 'stakes_install';
+    logged = dbWk.filter(e => e.loc === job.site && e.status === 'approved' && e.job_type === jtype && e.date >= jobStart).reduce((s,e) => s + parseFloat(e.unit_value||0), 0);
+  } else if (job.unit_type === 'days') {
+    logged = dbWk.filter(e => e.loc === job.site && e.status === 'approved' && e.date >= jobStart).length;
+  }
+  return logged;
+}
+
+function renderJobs() {
+  const el = document.getElementById('jobs-list');
+  if (!dbJobs.length) {
+    el.innerHTML = '<div class="no-data">No jobs yet</div>';
+    return;
+  }
+  const now = new Date(); now.setHours(0,0,0,0);
+  // Split into active (has entries) and upcoming (no entries yet)
+  const activeJobs = dbJobs.filter(j => getJobProgress(j) > 0);
+  const upcomingJobs = dbJobs.filter(j => getJobProgress(j) === 0);
+  const makeJobCard = job => {
+    const logged = getJobProgress(job);
+    const pct = job.target ? Math.min((logged / job.target) * 100, 100) : 0;
+    const over = logged > job.target;
+    const remaining = job.target - logged;
+
+    // Days remaining
+    let daysLeft = null, daysClass = '', daysText = '';
+    if (job.deadline) {
+      const dl = new Date(job.deadline); dl.setHours(0,0,0,0);
+      daysLeft = Math.round((dl - now) / 86400000);
+      if (daysLeft < 0) { daysClass = 'overdue'; daysText = Math.abs(daysLeft) + 'd overdue'; }
+      else if (daysLeft <= 3) { daysClass = 'urgent'; daysText = daysLeft + 'd left ⚠️'; }
+      else { daysText = daysLeft + ' days left'; }
+    }
+
+    const cardClass = daysLeft !== null && daysLeft < 0 ? 'overdue' : daysLeft <= 3 ? 'urgent' : over ? '' : '';
+    const barClass = over ? 'over' : pct > 80 ? 'warn' : '';
+    const numsClass = over ? 'warn' : pct >= 100 ? 'done' : '';
+    const unit = job.unit_type || 'units';
+
+    // Burying flag — single entry > 40% of target
+    const bigEntry = dbE.filter(e => e.loc === job.site && e.status === 'pending' && e.trees > job.target * 0.4);
+    const buryFlag = bigEntry.length > 0 ? '<div class="job-flag">⚠️ Possible burying — single entry of ' + bigEntry[0].trees.toLocaleString() + ' trees pending verification</div>' : '';
+
+    const jid = 'jd-' + job.id;
+    return '<div class="job-card ' + cardClass + '">' +
+      '<div class="job-hdr" onclick="document.getElementById(\''+jid+'\').classList.toggle(\'open\')">' +
+        '<div>' +
+          '<div class="job-title">' + job.name + '</div>' +
+          (job.site ? '<div style="font-family:var(--mono);font-size:8px;color:var(--muted);">' + job.site + (job.area_ha ? ' · ' + job.area_ha + 'ha' : '') + '</div>' : '') +
+        '</div>' +
+        '<div class="job-badges">' +
+          (daysText ? '<div class="job-days ' + daysClass + '">' + daysText + '</div>' : '') +
+          '<div class="job-days">' + Math.round(pct) + '%</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="job-progress-wrap">' +
+        '<div class="job-prog-row">' +
+          '<span class="job-prog-label">' + unit + ' logged</span>' +
+          '<span class="job-prog-nums ' + numsClass + '">' + logged.toLocaleString() + ' / ' + job.target.toLocaleString() + '</span>' +
+        '</div>' +
+        '<div class="job-bar-wrap"><div class="job-bar ' + barClass + '" style="width:' + pct + '%"></div></div>' +
+        (over ? '<div style="font-family:var(--mono);font-size:8px;color:var(--orange);">⚠️ ' + (logged - job.target).toLocaleString() + ' ' + unit + ' over target</div>' : '') +
+      '</div>' +
+      '<div class="job-detail" id="' + jid + '">' +
+        '<div class="job-detail-grid">' +
+          '<div class="jd-chip"><div class="jd-chip-lbl">Left</div><div class="jd-chip-val">' + (over ? 0 : Math.round(remaining)).toLocaleString() + '</div></div>' +
+          '<div class="jd-chip"><div class="jd-chip-lbl">Deadline</div><div class="jd-chip-val" style="font-size:14px;">' + (job.deadline ? fmtD(job.deadline) : '—') + '</div></div>' +
+          (job.area_ha ? '<div class="jd-chip"><div class="jd-chip-lbl">Area</div><div class="jd-chip-val">' + job.area_ha + 'ha</div></div>' : '') +
+          '<div class="jd-chip"><div class="jd-chip-lbl">Unit</div><div class="jd-chip-val" style="font-size:14px;">' + unit + '</div></div>' +
+        '</div>' +
+        (job.disciplines ? '<div style="margin-top:6px;">' +
+          JSON.parse(job.disciplines).map(d => {
+            const opt = DISC_OPTS ? DISC_OPTS.find(o=>o.v===d.type) : null;
+            return '<div style="display:flex;justify-content:space-between;padding:4px 8px;background:var(--card);border-radius:3px;margin-bottom:3px;font-size:11px;">'+
+              '<span style="color:var(--cream)">'+(opt?opt.l:d.type)+'</span>'+
+              '<span style="color:var(--muted)">'+d.target.toLocaleString()+' '+(opt?opt.u:'units')+'</span>'+
+              (d.rate?'<span style="color:var(--gold)">£'+d.rate.toFixed(3)+'/unit</span>':'')+'</div>';
+          }).join('') + '</div>' : '') +
+        (job.notes ? '<div style="font-size:11px;color:var(--muted);margin-top:6px;font-style:italic;padding:8px;background:var(--card);border-radius:3px;">' + job.notes + '</div>' : '') +
+        buryFlag +
+        (job.map_url ? '<img class="job-map-thumb" src="' + job.map_url + '" loading="lazy"/>' : '') +
+        (isSup ? '<div style="display:flex;gap:6px;margin-top:8px;"><button class="site-file-btn del" onclick="deleteJob(' + job.id + ')">Delete Job</button><button class="approve-btn" style="font-size:11px;padding:5px 10px;" onclick="archiveJob(' + job.id + ')">Mark Complete</button></div>' : '') +
+      '</div>' +
+    '</div>';
+  };
+  let html = '';
+  if (activeJobs.length) {
+    html += '<div class="section-title" style="font-size:16px;margin-top:4px;">In Progress</div>';
+    html += activeJobs.map(makeJobCard).join('');
+  }
+  if (upcomingJobs.length) {
+    html += '<div class="section-title" style="font-size:16px;margin-top:12px;">Upcoming</div>';
+    html += upcomingJobs.map(makeJobCard).join('');
+  }
+  el.innerHTML = html;
+}
+
+async function archiveJob(id) {
+  if (!confirm('Mark job as complete?')) return;
+  await sb.from('jobs').update({ status: 'archived' }).eq('id', id);
+  dbJobs = dbJobs.filter(j => j.id !== id);
+  renderJobs();
+  toast('Job marked complete', 'ok');
+}
+
+async function deleteJob(id) {
+  if (!confirm('Delete this job permanently?')) return;
+  await sb.from('jobs').delete().eq('id', id);
+  dbJobs = dbJobs.filter(j => j.id !== id);
+  renderJobs();
+  toast('Job deleted', 'ok');
+}
+
+
+// ── JOB STRIP & PICKER ───────────────────────────────────────────────────
+function renderLogJobStrip() {
+  const strip = document.getElementById('log-job-strip');
+  const pills = document.getElementById('log-job-pills');
+  if (!strip || !pills) return;
+  if (!dbJobs || !dbJobs.length) { strip.style.display = 'none'; return; }
+  const now = new Date(); now.setHours(0,0,0,0);
+  pills.innerHTML = dbJobs.map(job => {
+    const logged = getJobProgress(job);
+    const pct = job.target ? Math.min((logged / job.target) * 100, 100) : 0;
+    const daysLeft = job.deadline ? Math.round((new Date(job.deadline) - now) / 86400000) : null;
+    const isUrgent = daysLeft !== null && daysLeft <= 3;
+    const barClass = pct > 80 ? 'warn' : '';
+    const rem = Math.max(0, job.target - logged);
+    const pctText = Math.round(pct) + '% · ' + rem.toLocaleString() + ' left';
+    const dayStr = daysLeft === null ? '' : daysLeft < 0 ? ' · OVERDUE' : ' · ' + daysLeft + 'd left';
+    return '<div class="job-pill' + (isUrgent ? ' urgent' : '') + '" onclick="selectLogJob(' + job.id + ',\'' + (job.site||'') + '\')" id="jpill-' + job.id + '">' +
+      '<div class="job-pill-name">' + job.name + '</div>' +
+      '<div class="job-pill-site">' + (job.site || '—') + dayStr + '</div>' +
+      '<div class="job-pill-bar-wrap"><div class="job-pill-bar ' + barClass + '" style="width:' + pct + '%"></div></div>' +
+      '<div class="job-pill-pct">' + pctText + '</div>' +
+      (job.disciplines ? (()=>{try{const d=JSON.parse(job.disciplines);return d.length?'<div style="font-family:var(--mono);font-size:7px;color:var(--pine);margin-top:2px;">'+d.map(x=>x.rate?'£'+parseFloat(x.rate).toFixed(3):null).filter(Boolean).join(' · ')+'</div>':''}catch(e){return ''}})():'') +
+    '</div>';
+  }).join('');
+  strip.style.display = 'block';
+}
+
+function selectLogJob(jobId, site) {
+  document.querySelectorAll('.job-pill').forEach(p => p.classList.remove('selected'));
+  const pill = document.getElementById('jpill-' + jobId);
+  if (pill) pill.classList.add('selected');
+
+  const job = dbJobs.find(j => String(j.id) === String(jobId));
+  if (!job) return;
+
+  // Determine which form to open based on job unit type
+  const isSpray = job.unit_type === 'ha' && job.name && job.name.toLowerCase().includes('spray');
+  const isWork = job.unit_type === 'guards' || job.unit_type === 'stakes' || job.unit_type === 'days';
+
+  if (isSpray) {
+    // Switch to spray form
+    switchJT('spray');
+    if (site) {
+      const sl = document.getElementById('s-loc');
+      if (sl) { sl.value = site; lcCh('s'); }
+    }
+    // Auto-detect chemical from job name
+    const nm = (job.name||'').toLowerCase();
+    const chem = nm.includes('weed') ? 'weed' : nm.includes('other') ? 'other' : 'weevil';
+    const chemSel = document.getElementById('s-chem');
+    if (chemSel) chemSel.value = chem;
+    // Clear ha so staff enters it
+    document.getElementById('s-ha').value = '';
+  } else if (isWork) {
+    // Switch to other work form
+    switchJT('work');
+    if (site) {
+      const wl = document.getElementById('w-loc');
+      if (wl) { wl.value = site; lcCh('w'); }
+    }
+    const typeMap = { guards:'vole', stakes:'stakes_install', days:'brushcutting' };
+    const wjtype = document.getElementById('w-jtype');
+    if (wjtype && typeMap[job.unit_type]) wjtype.value = typeMap[job.unit_type];
+    const wutype = document.getElementById('w-utype');
+    if (wutype) {
+      if (job.unit_type === 'guards' || job.unit_type === 'stakes') wutype.value = 'count';
+      else wutype.value = 'day';
+      updWU();
+    }
+    document.getElementById('w-val').value = '';
+  } else {
+    // Planting form
+    switchJT('plant');
+    if (site) {
+      const pl = document.getElementById('p-loc');
+      if (pl) { pl.value = site; lcCh('p'); }
+    }
+    populateJobPicker();
+    setTimeout(() => {
+      const js = document.getElementById('p-job');
+      if (js) { js.value = String(jobId); autoFillJobType(); }
+    }, 50);
+  }
+
+  setTimeout(() => {
+    document.querySelector('.job-type-bar').scrollIntoView({behavior:'smooth', block:'start'});
+  }, 80);
+}
+
+
+function autoFillJobType() {
+  const jobId = document.getElementById('p-job').value;
+  if (!jobId) return;
+  const job = dbJobs.find(j => String(j.id) === String(jobId));
+  if (!job) return;
+  // Use planting_type from job if set, otherwise fall back to unit_type map
+  const typeMap = { trees:'straight', ha:'beatup_h', guards:'vole', stakes:'stakes_install' };
+  const jtype = job.planting_type || typeMap[job.unit_type] || 'straight';
+  const sel = document.getElementById('p-jtype');
+  if (sel) { sel.value = jtype; updPU(); }
+  // Show/hide crew for vole/beatup
+  const v = document.getElementById('p-jtype').value;
+  document.getElementById('p-crew-wrap').style.display = (v==='vole'||v==='beatup_h') ? 'block' : 'none';
+}
+function populateJobPicker() {
+  const loc = document.getElementById('p-loc') ? document.getElementById('p-loc').value : '';
+  const wrap = document.getElementById('p-job-wrap');
+  const sel = document.getElementById('p-job');
+  if (!wrap || !sel) return;
+  if (!loc || loc === '__new__') { wrap.style.display = 'none'; return; }
+  const siteJobs = dbJobs.filter(j => (j.site === loc || !j.site) && j.status === 'active');
+  if (!siteJobs.length) { wrap.style.display = 'none'; return; }
+  sel.innerHTML = '<option value="">No specific job</option>' +
+    siteJobs.map(j => {
+      const prog = getJobProgress(j);
+      const pct = j.target ? Math.round((prog/j.target)*100) : 0;
+      const rem = Math.max(0, j.target - prog);
+      return '<option value="' + j.id + '">' + j.name + ' — ' + pct + '% done, ' + rem.toLocaleString() + ' remaining</option>';
+    }).join('');
+  wrap.style.display = 'block';
+}
+
+// ── QUICK MULTI-ENTRY ────────────────────────────────────────────────────
+function toggleQuickLog() {
+  const wrap = document.getElementById('quick-log-wrap');
+  const isOpen = wrap.style.display === 'block';
+  wrap.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen && document.getElementById('quick-entries-list').children.length === 0) addQuickRow();
+}
+
+function addQuickRow() {
+  const list = document.getElementById('quick-entries-list');
+  const div = document.createElement('div');
+  div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-bottom:6px;align-items:center;';
+  div.innerHTML = '<select class="qr-person" style="font-size:13px;padding:8px 10px;">' +
+    CREW.map(n => '<option>' + n + '</option>').join('') + '</select>' +
+    '<input type="number" class="qr-count" min="1" placeholder="Trees" style="font-family:Bebas Neue,sans-serif;font-size:22px;color:var(--bright);text-align:center;padding:8px;"/>' +
+    '<button onclick="this.parentElement.remove()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:3px;padding:8px 10px;cursor:pointer;font-size:14px;">×</button>';
+  list.appendChild(div);
+}
+
+async function submitQuickLog() {
+  const date = document.getElementById('p-date').value;
+  let loc = document.getElementById('p-loc').value;
+  if (loc === '__new__') { loc = await addLoc('p'); if (!loc) return; }
+  if (!date || !loc) { toast('Set date and location first', 'err'); return; }
+  const rows = [...document.getElementById('quick-entries-list').children];
+  if (!rows.length) { toast('Add at least one entry', 'err'); return; }
+  const entries = rows.map(r => ({
+    person: r.querySelector('.qr-person').value,
+    trees: parseInt(r.querySelector('.qr-count').value) || 0
+  })).filter(e => e.trees > 0);
+  if (!entries.length) { toast('Enter tree counts', 'err'); return; }
+  const btn = document.getElementById('quick-submit-btn'); btn.disabled = true;
+  const inserts = entries.map(e => ({
+    date, person: e.person, trees: e.trees, loc,
+    status: 'approved', submitted_by: user, job_type: 'straight'
+  }));
+  const { error } = await sb.from('entries').insert(inserts);
+  btn.disabled = false;
+  if (error) { toast('Error: ' + error.message, 'err'); return; }
+  document.getElementById('quick-entries-list').innerHTML = '';
+  document.getElementById('quick-log-wrap').style.display = 'none';
+  toast(entries.length + ' entries logged — ' + entries.reduce((s,e) => s + e.trees, 0).toLocaleString() + ' trees total', 'ok');
+}
+
+
+// ── TIMESHEET ─────────────────────────────────────────────────────────────
+function renderTimesheet() {
+  const now = new Date();
+  const fromEl = document.getElementById('ts-from');
+  const toEl = document.getElementById('ts-to');
+  if (!fromEl.value) {
+    fromEl.value = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-01';
+  }
+  if (!toEl.value) {
+    toEl.value = today();
+  }
+  renderRatesPreview();
+}
+
+function getRatesFromJobs() {
+  // Build a rates map from all active job disciplines
+  const rates = {};
+  dbJobs.forEach(job => {
+    if (!job.disciplines) return;
+    try {
+      const discs = JSON.parse(job.disciplines);
+      discs.forEach(d => {
+        if (d.rate && d.type) {
+          // Keep highest rate if multiple jobs have same discipline type
+          if (!rates[d.type] || d.rate > rates[d.type]) {
+            rates[d.type] = d.rate;
+          }
+        }
+      });
+    } catch(e) {}
+  });
+  return rates;
+}
+
+function renderRatesPreview() {
+  const rates = getRatesFromJobs();
+  const el = document.getElementById('ts-rates-preview');
+  if (!el) return;
+  const entries = Object.entries(rates);
+  if (!entries.length) {
+    el.innerHTML = '<div style="font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1px;padding:8px 0;">No rates found — add discipline rates when creating jobs.</div>';
+    return;
+  }
+  el.innerHTML = '<div style="font-family:var(--mono);font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--leaf);margin-bottom:8px;">// Rates from Jobs</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">' +
+    entries.map(([type, rate]) => {
+      const opt = DISC_OPTS ? DISC_OPTS.find(o => o.v === type) : null;
+      return '<div style="background:var(--card);border:1px solid var(--border);border-radius:3px;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;">' +
+        '<span style="font-family:var(--mono);font-size:8px;color:var(--muted);">'+(opt?opt.l:type)+'</span>' +
+        '<span style="font-family:Bebas Neue,sans-serif;font-size:16px;color:var(--gold);">£'+parseFloat(rate).toFixed(3)+'</span>' +
+      '</div>';
+    }).join('') +
+    '</div>' +
+    '<div style="font-family:var(--mono);font-size:7px;color:var(--muted);margin-top:6px;letter-spacing:1px;">Rates pulled from active job disciplines. Update rates on the job to change.</div>';
+}
+
+function calcTimesheet() {
+  const from = document.getElementById('ts-from').value;
+  const to = document.getElementById('ts-to').value;
+  if (!from || !to) { toast('Set pay period dates', 'err'); return; }
+
+  const rates = getRatesFromJobs();
+  // Ensure fallback keys exist
+  if (!rates.other_spray) rates.other_spray = rates.weevil || 0;
+  if (!rates.other) rates.other = rates.day || 0;
+
+  // Filter entries to pay period (approved only)
+  const pE = dbE.filter(e => e.status==='approved' && e.date >= from && e.date <= to);
+  const pS = dbSp.filter(e => e.status==='approved' && e.date >= from && e.date <= to);
+  // Include pending work entries too (show with note)
+  const pW = dbWk.filter(e => (e.status==='approved'||e.status==='pending') && e.date >= from && e.date <= to && e.job_type !== 'site_file');
+  const pendingCount = pW.filter(e=>e.status==='pending').length;
+
+  let grandTotal = 0;
+  const crewData = CREW.map(name => {
+    const lines = [];
+
+    // Planting entries
+    const myPlanting = pE.filter(e => e.person === name);
+    const plantTypes = {};
+    myPlanting.forEach(e => {
+      const jt = e.job_type || 'straight';
+      if (!plantTypes[jt]) plantTypes[jt] = 0;
+      plantTypes[jt] += e.trees;
+    });
+    Object.entries(plantTypes).forEach(([jt, count]) => {
+      const rate = rates[jt] || rates.straight;
+      const earn = count * rate;
+      lines.push({ label: (JL[jt]||jt), qty: count.toLocaleString(), unit: 'trees', rate: '£'+rate.toFixed(3), earn });
+    });
+
+    // Spray entries (split ha by crew)
+    const mySpray = {};
+    pS.forEach(e => {
+      const crew = Array.isArray(e.crew) ? e.crew : [];
+      if (!crew.includes(name)) return;
+      const share = parseFloat(e.hectares) / crew.length;
+      const chem = e.chemical;
+      if (!mySpray[chem]) mySpray[chem] = 0;
+      mySpray[chem] += share;
+    });
+    Object.entries(mySpray).forEach(([chem, ha]) => {
+      const rate = rates[chem] || rates.weevil;
+      const earn = ha * rate;
+      lines.push({ label: chem.charAt(0).toUpperCase()+chem.slice(1)+' Spray', qty: ha.toFixed(2), unit: 'ha', rate: '£'+rate.toFixed(2)+'/ha', earn });
+    });
+
+    // Work entries
+    const myWork = pW.filter(e => Array.isArray(e.crew) && e.crew.includes(name));
+    const workTypes = {};
+    myWork.forEach(e => {
+      const jt = e.job_type;
+      if (!workTypes[jt]) workTypes[jt] = { count: 0, unit: e.unit_type, pending: 0, rate_override: null };
+      workTypes[jt].count += parseFloat(e.unit_value || 1);
+      if (e.status === 'pending') workTypes[jt].pending++;
+      if (e.rate_override) workTypes[jt].rate_override = e.rate_override;
+    });
+    Object.entries(workTypes).forEach(([jt, d]) => {
+      // Rate lookup: try job type key, then by unit type, then fall back to day
+      const rate = d.rate_override !== undefined && d.rate_override
+        ? d.rate_override
+        : rates[jt] !== undefined ? rates[jt]
+        : d.unit === 'ha' ? rates.weevil
+        : d.unit === 'count' ? rates.vole
+        : rates.day;
+      const earn = d.count * rate;
+      const pendNote = d.pending > 0 ? ' ⏳' : '';
+      lines.push({ label: (JL[jt]||jt)+pendNote, qty: d.count % 1 === 0 ? d.count : d.count.toFixed(2), unit: d.unit === 'day' ? 'days' : d.unit, rate: '£'+rate.toFixed(2)+'/'+( d.unit==='day'?'day':d.unit), earn });
+    });
+
+    const total = lines.reduce((s, l) => s + l.earn, 0);
+    grandTotal += total;
+    return { name, lines, total };
+  }).filter(c => c.total > 0 || c.lines.length > 0);
+
+  // Render
+  const tsid = id => 'tsb-' + id;
+  const el = document.getElementById('ts-result');
+
+  const pendingNote = pendingCount > 0 ? '<div style="font-family:var(--mono);font-size:8px;color:var(--orange);letter-spacing:1px;margin-bottom:8px;">⏳ '+pendingCount+' pending entr'+(pendingCount===1?'y':'ies')+' included — approve in Verify to finalise</div>' : '';
+  const summaryHtml = '<div class="ts-summary"><div class="ts-summary-title">// Pay Period ' + fmtD(from) + ' — ' + fmtD(to) + '</div>' + pendingNote +
+    '<div class="ts-summary-grid">' +
+      '<div class="ts-sum-chip"><div class="ts-sum-val">£' + grandTotal.toFixed(2) + '</div><div class="ts-sum-lbl">Total Wage Bill</div></div>' +
+      '<div class="ts-sum-chip"><div class="ts-sum-val">' + crewData.length + '</div><div class="ts-sum-lbl">Active Crew</div></div>' +
+      '<div class="ts-sum-chip"><div class="ts-sum-val">' + pE.reduce((s,e)=>s+e.trees,0).toLocaleString() + '</div><div class="ts-sum-lbl">Trees</div></div>' +
+    '</div></div>';
+
+  const cardsHtml = crewData.map((c, i) => {
+    const bid = 'tsb' + i;
+    return '<div class="ts-card">' +
+      '<div class="ts-person-hdr" onclick="document.getElementById(\''+bid+'\').classList.toggle(\'open\')">' +
+        pfpHtml(c.name, 'md') +
+        '<div class="ts-name">' + c.name + '</div>' +
+        '<div class="ts-total">£' + c.total.toFixed(2) + '</div>' +
+      '</div>' +
+      '<div class="ts-body" id="' + bid + '">' +
+        c.lines.map(l => '<div class="ts-row">' +
+          '<span class="ts-row-lbl">' + l.label + '</span>' +
+          '<span class="ts-row-val">' + l.qty + ' ' + l.unit + ' @ ' + l.rate + '</span>' +
+          '<span class="ts-row-earn">£' + l.earn.toFixed(2) + '</span>' +
+        '</div>').join('') +
+        '<div class="ts-row" style="margin-top:4px;padding-top:6px;border-top:1px solid var(--border);">' +
+          '<span class="ts-row-lbl" style="color:var(--cream);font-weight:700;">Total</span>' +
+          '<span></span>' +
+          '<span class="ts-row-earn" style="font-size:20px;">£' + c.total.toFixed(2) + '</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  if (!crewData.length) {
+    el.innerHTML = summaryHtml + '<div class="no-data" style="padding:20px;text-align:center;">' +
+      '<div style="font-size:14px;margin-bottom:6px;">No entries found for this period</div>' +
+      '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);">Check: entries are approved · dates overlap · crew selected on work entries</div>' +
+    '</div>';
+    return;
+  }
+  el.innerHTML = summaryHtml + cardsHtml;
+}
+
+
+// ── SETUP ──────────────────────────────────────────────────────────────────
+let setupCrew = [];
+
+function setupNext(step) {
+  document.querySelectorAll('.setup-step').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.step-dot').forEach(d => d.classList.remove('active'));
+  document.getElementById('setup-step-'+step).classList.add('active');
+  document.getElementById('dot-'+step).classList.add('active');
+}
+
+function addCrewMember() {
+  const inp = document.getElementById('crew-input');
+  const name = inp.value.trim();
+  if (!name || setupCrew.includes(name)) { inp.value=''; return; }
+  setupCrew.push(name);
+  inp.value = '';
+  renderCrewChips();
+}
+
+function renderCrewChips() {
+  document.getElementById('crew-chips').innerHTML = setupCrew.map((n,i) =>
+    '<span class="crew-chip">'+n+'<button class="crew-chip-del" onclick="setupCrew.splice('+i+',1);renderCrewChips()">×</button></span>'
+  ).join('');
+}
+
+async function finishSetup() {
+  const company = document.getElementById('setup-company').value.trim() || 'Forestry Field Tracker';
+  const tagline = document.getElementById('setup-tagline').value.trim() || 'Field Operations';
+  const supName = document.getElementById('setup-sup-name').value.trim() || 'Supervisor';
+  const supPin = document.getElementById('setup-sup-pin').value.trim();
+  const dirName = document.getElementById('setup-dir-name').value.trim() || 'Director';
+  const dirPin = document.getElementById('setup-dir-pin').value.trim();
+
+  if (!setupCrew.length) { toast('Add at least one crew member', 'err'); setupNext(1); return; }
+  if (!supPin || supPin.length !== 4) { toast('Supervisor PIN must be 4 digits', 'err'); return; }
+  if (!dirPin || dirPin.length !== 4) { toast('Director PIN must be 4 digits', 'err'); return; }
+
+  const config = { company_name: company, subtitle: tagline, crew: setupCrew,
+    supervisor_name: supName, supervisor_pin: supPin, director_name: dirName, director_pin: dirPin };
+
+  const { error } = await sb.from('company_config').insert(config);
+  if (error) { toast('Error saving config: '+error.message, 'err'); return; }
+
+  applyConfig(config);
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  buildNames();
+  toast('Setup complete — welcome to '+company, 'ok');
+}
+
+function applyConfig(cfg) {
+  COMPANY_NAME = cfg.company_name || 'Forestry Field Tracker';
+  COMPANY_SUB = cfg.subtitle || 'Field Operations';
+  CREW = Array.isArray(cfg.crew) ? cfg.crew : (typeof cfg.crew === 'string' ? JSON.parse(cfg.crew) : []);
+  SUP_NAME = cfg.supervisor_name || 'Supervisor';
+  DIR_NAME = cfg.director_name || 'Director';
+  PIN = String(cfg.supervisor_pin || '0000');
+  LLOYD_PIN = String(cfg.director_pin || '0000');
+  SUPERVISOR = SUP_NAME;
+  STAFF_GRID = CREW.filter(n => n !== SUP_NAME && n !== DIR_NAME);
+
+  // Update UI text
+  const bn = document.getElementById('brand-name'); if(bn) bn.textContent = COMPANY_NAME;
+  const bs = document.getElementById('brand-sub'); if(bs) bs.textContent = COMPANY_SUB;
+  const lt = document.getElementById('login-title'); if(lt) lt.textContent = COMPANY_NAME;
+  const ls = document.getElementById('login-sub'); if(ls) ls.textContent = COMPANY_SUB;
+  document.title = COMPANY_NAME;
+
+  // Update management buttons
+  const supBtn = document.querySelector('#planter-section .mgmt-btn');
+  const dirBtn = document.querySelectorAll('#planter-section .mgmt-btn')[1];
+  if(supBtn) supBtn.querySelector('span') && (supBtn.querySelector('span').textContent = SUP_NAME);
+  if(dirBtn) dirBtn.querySelector('span') && (dirBtn.querySelector('span').textContent = DIR_NAME);
+}
+
+async function loadConfig() {
+  const { data, error } = await sb.from('company_config').select('*').order('created_at', {ascending:false}).limit(1);
+  if (error || !data || !data.length) return false;
+  applyConfig(data[0]);
+  return true;
+}
+initCal();
+initDB().then(async () => { await seedSiteCoords(); await loadJobs(); });
+loadVerse();
+</script>
+</body>
+</html>
