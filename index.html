@@ -559,6 +559,63 @@ select option{background:var(--panel);}
 .h2h-score.behind{color:var(--orange);background:rgba(212,131,70,.12);}
 .h2h-score.even{color:var(--muted);background:rgba(108,108,100,.12);}
 .h2h-total{font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;flex-shrink:0;}
+/* AI Chatbot */
+#chat-fab{position:fixed;bottom:16px;right:16px;width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--pine),var(--leaf));border:1px solid var(--bright);color:white;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;cursor:pointer;z-index:200;box-shadow:0 4px 18px rgba(0,0,0,.5),0 0 18px rgba(141,201,124,.25);display:none;align-items:center;justify-content:center;transition:transform .15s;}
+#chat-fab:hover{transform:scale(1.05);}
+#chat-fab.show{display:flex;}
+#chat-fab .fab-dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--orange);box-shadow:0 0 6px var(--orange);}
+#chat-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;display:none;align-items:flex-end;justify-content:center;}
+#chat-overlay.show{display:flex;}
+#chat-window{background:var(--panel);border:1px solid var(--moss);border-radius:6px 6px 0 0;width:100%;max-width:560px;height:88vh;display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(0,0,0,.6);}
+.chat-header{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--border);background:var(--deep);}
+.chat-header-left{display:flex;align-items:center;gap:9px;}
+.chat-orb{width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 30% 30%,var(--bright),var(--pine) 60%,var(--moss));box-shadow:0 0 12px rgba(141,201,124,.4);animation:orbPulse 2.5s ease-in-out infinite;}
+@keyframes orbPulse{0%,100%{box-shadow:0 0 10px rgba(141,201,124,.3);}50%{box-shadow:0 0 18px rgba(141,201,124,.55);}}
+.chat-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:3px;color:white;line-height:1;}
+.chat-sub{font-family:var(--mono);font-size:7px;letter-spacing:2px;text-transform:uppercase;color:var(--leaf);margin-top:2px;}
+.chat-close{background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:14px;width:28px;height:28px;border-radius:3px;cursor:pointer;}
+.chat-close:hover{color:var(--red);border-color:var(--red);}
+.chat-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--black);}
+.chat-msg{max-width:85%;padding:9px 12px;border-radius:6px;font-size:13px;line-height:1.45;word-wrap:break-word;}
+.chat-msg.user{align-self:flex-end;background:var(--pine);color:white;border-bottom-right-radius:2px;}
+.chat-msg.bot{align-self:flex-start;background:var(--card);border:1px solid var(--border);color:var(--cream);border-bottom-left-radius:2px;}
+.chat-msg.system{align-self:center;background:rgba(74,127,160,.12);border:1px solid var(--blue);color:var(--bl);font-family:var(--mono);font-size:10px;letter-spacing:1px;padding:6px 10px;border-radius:3px;max-width:100%;}
+.chat-msg.tool{align-self:flex-start;background:rgba(201,168,76,.08);border:1px solid var(--gold);border-left:2px solid var(--gold);color:var(--gold);font-family:var(--mono);font-size:10px;letter-spacing:1px;padding:7px 10px;border-radius:3px;}
+.chat-msg.error{align-self:flex-start;background:rgba(184,50,50,.1);border:1px solid var(--red);color:var(--red);font-size:11px;}
+.chat-msg .msg-attachment{margin-top:6px;border-radius:4px;overflow:hidden;border:1px solid var(--border);}
+.chat-msg .msg-attachment img{max-width:100%;max-height:200px;display:block;}
+.chat-msg .msg-attachment.pdf{padding:8px 10px;font-family:var(--mono);font-size:10px;color:var(--cream);background:var(--deep);}
+.chat-typing{align-self:flex-start;display:flex;gap:4px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;}
+.chat-typing span{width:6px;height:6px;border-radius:50%;background:var(--leaf);animation:typingDot 1.2s ease-in-out infinite;}
+.chat-typing span:nth-child(2){animation-delay:.2s;}
+.chat-typing span:nth-child(3){animation-delay:.4s;}
+@keyframes typingDot{0%,60%,100%{transform:translateY(0);opacity:.4;}30%{transform:translateY(-4px);opacity:1;}}
+.chat-suggestions{display:flex;flex-wrap:wrap;gap:5px;padding:8px 14px 0;}
+.chat-sugg{background:var(--card);border:1px solid var(--border);color:var(--cream);font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:1px;padding:5px 9px;border-radius:14px;cursor:pointer;transition:all .15s;}
+.chat-sugg:hover{border-color:var(--bright);color:var(--bright);}
+.chat-attachments-strip{display:flex;flex-wrap:wrap;gap:6px;padding:6px 14px 0;}
+.chat-attach-pill{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--leaf);border-radius:14px;padding:4px 8px;font-family:var(--mono);font-size:9px;color:var(--cream);}
+.chat-attach-pill img{width:24px;height:24px;border-radius:3px;object-fit:cover;}
+.chat-attach-pill .x{cursor:pointer;color:var(--red);font-weight:bold;margin-left:2px;}
+.chat-input-bar{display:flex;align-items:flex-end;gap:6px;padding:10px 12px 12px;border-top:1px solid var(--border);background:var(--deep);}
+.chat-attach-btn{background:var(--card);border:1px solid var(--border);color:var(--leaf);width:36px;height:36px;border-radius:4px;cursor:pointer;font-size:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.chat-attach-btn:hover{border-color:var(--leaf);background:rgba(107,158,94,.1);}
+.chat-textarea{flex:1;background:var(--card);border:1px solid var(--border);color:var(--cream);font-family:'Barlow',sans-serif;font-size:13px;padding:9px 11px;border-radius:4px;resize:none;min-height:36px;max-height:90px;outline:none;}
+.chat-textarea:focus{border-color:var(--leaf);}
+.chat-send{background:var(--pine);border:none;color:white;width:36px;height:36px;border-radius:4px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.chat-send:hover:not(:disabled){background:var(--leaf);}
+.chat-send:disabled{background:var(--moss);cursor:not-allowed;opacity:.5;}
+.chat-action-card{background:var(--card);border:1px solid var(--border);border-left:2px solid var(--bright);border-radius:3px;padding:9px 11px;margin-top:5px;font-size:12px;line-height:1.5;}
+.chat-action-card .cac-title{font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--bright);margin-bottom:4px;}
+.chat-action-card .cac-row{display:flex;justify-content:space-between;padding:2px 0;color:var(--cream);}
+.chat-action-card .cac-label{color:var(--muted);font-family:var(--mono);font-size:10px;}
+.chat-confirm-row{display:flex;gap:6px;margin-top:8px;}
+.chat-confirm-btn{flex:1;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;padding:7px;border-radius:3px;cursor:pointer;border:1px solid var(--border);}
+.chat-confirm-btn.ok{background:var(--pine);color:white;border-color:var(--pine);}
+.chat-confirm-btn.ok:hover{background:var(--leaf);}
+.chat-confirm-btn.cancel{background:var(--card);color:var(--muted);}
+.chat-confirm-btn.cancel:hover{color:var(--red);border-color:var(--red);}
+@media (min-width:600px){#chat-overlay{align-items:center;}#chat-window{height:80vh;max-height:720px;border-radius:6px;}}
 </style>
 </head>
 <body>
@@ -1015,6 +1072,33 @@ select option{background:var(--panel);}
       </div>
     </div>
   </main>
+</div>
+<button id="chat-fab" onclick="chatOpen()" title="AI Assistant">
+  <span class="fab-dot" id="chat-fab-dot" style="display:none"></span>
+  AI
+</button>
+<div id="chat-overlay">
+  <div id="chat-window">
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <div class="chat-orb"></div>
+        <div>
+          <div class="chat-title">FIELD AI</div>
+          <div class="chat-sub" id="chat-sub-status">Ready</div>
+        </div>
+      </div>
+      <button class="chat-close" onclick="chatClose()">✕</button>
+    </div>
+    <div class="chat-body" id="chat-body"></div>
+    <div class="chat-suggestions" id="chat-suggestions"></div>
+    <div class="chat-attachments-strip" id="chat-attachments"></div>
+    <div class="chat-input-bar">
+      <button class="chat-attach-btn" onclick="document.getElementById('chat-file-input').click()" title="Attach screenshot or PDF">📎</button>
+      <input type="file" id="chat-file-input" accept="image/*,.pdf" multiple style="display:none" onchange="chatHandleFiles(this.files)"/>
+      <textarea class="chat-textarea" id="chat-input" placeholder="Ask me anything..." rows="1" onkeydown="chatKeydown(event)" oninput="chatAutoGrow(this)"></textarea>
+      <button class="chat-send" id="chat-send-btn" onclick="chatSend()" title="Send">▶</button>
+    </div>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 <script>
@@ -3314,6 +3398,658 @@ async function identifySpecies(input) {
   } catch(e) {
     resultEl.innerHTML = '<div style="color:var(--orange);font-family:var(--mono);font-size:10px;letter-spacing:1px;padding:14px;text-align:center;line-height:1.5;">AI call failed<div style="color:var(--muted);font-size:9px;margin-top:6px;">'+chessEsc(e.message||'Unknown error')+'</div><button class="chess-btn" style="margin-top:12px;" onclick="document.getElementById(\'species-file\').value=\'\';document.getElementById(\'species-file\').click()">Try Again</button></div>';
   }
+}
+
+/* =====================================================
+   AI FIELD ASSISTANT — Agentic chatbot with tool use
+   ===================================================== */
+const CHAT = {
+  history: [],          // {role, content} — sent to API
+  attachments: [],      // {type:'image'|'pdf', dataUrl, b64, mediaType, name}
+  busy: false,
+  opened: false,
+  pendingConfirm: null  // {action, params, resolve}
+};
+
+function chatEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function chatShowFab(){ if(user) document.getElementById('chat-fab').classList.add('show'); }
+function chatHideFab(){ document.getElementById('chat-fab').classList.remove('show'); }
+
+function chatOpen(){
+  document.getElementById('chat-overlay').classList.add('show');
+  CHAT.opened = true;
+  document.getElementById('chat-fab-dot').style.display = 'none';
+  if (CHAT.history.length === 0) chatGreet();
+  setTimeout(()=>document.getElementById('chat-input').focus(), 100);
+}
+function chatClose(){
+  document.getElementById('chat-overlay').classList.remove('show');
+}
+
+function chatGreet(){
+  const role = isDir ? 'director' : isSup ? 'supervisor' : 'planter';
+  const name = user || 'there';
+  chatAddMsg('bot', "Hey " + chatEsc(name) + " — I'm your field assistant. I can help you:");
+  const opts = [
+    "📋 Create a new job (just describe it)",
+    "📍 Update coverage from an Avenza screenshot",
+    "💰 Show pay breakdown for a worker or period",
+    "📊 Check job progress / what's left"
+  ];
+  chatAddMsg('bot', opts.map(o=>'• '+chatEsc(o)).join('<br/>'));
+  chatRenderSuggestions([
+    "What jobs are active?",
+    "How much have I earned this week?",
+    "Upload Avenza screenshot",
+    "Create a new job"
+  ]);
+}
+
+function chatRenderSuggestions(list){
+  const el = document.getElementById('chat-suggestions');
+  if (!list || !list.length) { el.innerHTML=''; return; }
+  el.innerHTML = list.map(s => '<button class="chat-sugg" onclick="chatPickSuggestion(this)">'+chatEsc(s)+'</button>').join('');
+}
+function chatPickSuggestion(btn){
+  document.getElementById('chat-input').value = btn.textContent;
+  chatRenderSuggestions([]);
+  chatSend();
+}
+
+function chatAddMsg(kind, html, scroll=true){
+  const body = document.getElementById('chat-body');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + kind;
+  div.innerHTML = html;
+  body.appendChild(div);
+  if (scroll) body.scrollTop = body.scrollHeight;
+  return div;
+}
+function chatAddTyping(){
+  const body = document.getElementById('chat-body');
+  const div = document.createElement('div');
+  div.className = 'chat-typing';
+  div.id = 'chat-typing-indicator';
+  div.innerHTML = '<span></span><span></span><span></span>';
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+}
+function chatRemoveTyping(){
+  const el = document.getElementById('chat-typing-indicator');
+  if (el) el.remove();
+}
+
+function chatAutoGrow(ta){
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight, 90) + 'px';
+}
+function chatKeydown(e){
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    chatSend();
+  }
+}
+
+async function chatHandleFiles(fileList){
+  for (const file of fileList) {
+    try {
+      if (file.type === 'application/pdf') {
+        const b64 = await new Promise((res,rej)=>{
+          const r = new FileReader();
+          r.onload = e => res(e.target.result.split(',')[1]);
+          r.onerror = () => rej(new Error('Read failed'));
+          r.readAsDataURL(file);
+        });
+        CHAT.attachments.push({ type:'pdf', b64, mediaType:'application/pdf', name:file.name });
+      } else if (file.type.startsWith('image/')) {
+        const payload = await downscaleImage(file, 1400);
+        CHAT.attachments.push({ type:'image', dataUrl: payload.dataUrl, b64: payload.b64, mediaType: payload.media_type, name: file.name });
+      }
+    } catch(e) { console.warn('Attach error', e); }
+  }
+  chatRenderAttachments();
+  document.getElementById('chat-file-input').value = '';
+}
+function chatRenderAttachments(){
+  const el = document.getElementById('chat-attachments');
+  if (!CHAT.attachments.length) { el.innerHTML=''; return; }
+  el.innerHTML = CHAT.attachments.map((a,i) => {
+    const thumb = a.type === 'image'
+      ? '<img src="'+a.dataUrl+'"/>'
+      : '<span>📄</span>';
+    return '<div class="chat-attach-pill">'+thumb+'<span>'+chatEsc(a.name||(a.type==='pdf'?'PDF':'Image'))+'</span><span class="x" onclick="chatRemoveAttach('+i+')">✕</span></div>';
+  }).join('');
+}
+function chatRemoveAttach(i){
+  CHAT.attachments.splice(i,1);
+  chatRenderAttachments();
+}
+
+/* ---- Tools the bot can call ---- */
+const CHAT_TOOLS = [
+  {
+    name: 'list_jobs',
+    description: 'List all active jobs with their progress, deadlines, and remaining work. Use when user asks what jobs are active, what is left to do, or for an overview of work in progress.',
+    input_schema: { type:'object', properties:{}, required:[] }
+  },
+  {
+    name: 'list_sites',
+    description: 'List all available sites/locations on file.',
+    input_schema: { type:'object', properties:{}, required:[] }
+  },
+  {
+    name: 'list_crew',
+    description: 'List all crew members in the company.',
+    input_schema: { type:'object', properties:{}, required:[] }
+  },
+  {
+    name: 'create_job',
+    description: 'Create a new job in the database. Always confirm details with the user first by showing a summary, then call this tool only after they say yes/confirm. Disciplines are tasks like straight planting, beat up, vole guards, brushcutting etc with a target quantity and rate per unit.',
+    input_schema: {
+      type:'object',
+      properties: {
+        name: { type:'string', description:'Short job name e.g. "Lurg 10ha Beat Up"' },
+        site: { type:'string', description:'Site name (must match an existing site, or null for none)' },
+        deadline: { type:'string', description:'Deadline as YYYY-MM-DD or null' },
+        notes: { type:'string', description:'Brief notes / job description' },
+        area_ha: { type:'number', description:'Total area in hectares if known' },
+        disciplines: {
+          type:'array',
+          description:'List of work disciplines on this job',
+          items: {
+            type:'object',
+            properties: {
+              type: { type:'string', enum:['straight','beatup_t','beatup_h','fertiliser','vole','brushcutting','hand_weeding','mech_weeding','stakes_install','stakes_removal','chainsaw','gorse','maintenance','weevil','weed','day','other'] },
+              target: { type:'number' },
+              rate: { type:'number', description:'£ rate per unit' }
+            },
+            required:['type','target']
+          }
+        }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'log_coverage',
+    description: 'Log a work entry against an existing job — typically area covered today from an Avenza screenshot, or trees planted, or guards installed. Always confirm with user before calling.',
+    input_schema: {
+      type:'object',
+      properties: {
+        site: { type:'string', description:'Site name (must match a job site)' },
+        date: { type:'string', description:'Date as YYYY-MM-DD. Default today if not given.' },
+        unit_type: { type:'string', enum:['trees','ha','guards','stakes','days'], description:'Type of unit being logged' },
+        amount: { type:'number', description:'Quantity (hectares, trees, guards etc.)' },
+        discipline: { type:'string', description:'Discipline e.g. straight, beatup_h, vole, brushcutting, weevil, weed, stakes_install — match the job\'s disciplines.' },
+        crew: { type:'array', items:{type:'string'}, description:'Names of crew on the entry' },
+        notes: { type:'string' }
+      },
+      required: ['site','unit_type','amount']
+    }
+  },
+  {
+    name: 'pay_breakdown',
+    description: 'Calculate pay breakdown for a worker or all workers across a date range. Uses entries logged + job rates.',
+    input_schema: {
+      type:'object',
+      properties: {
+        worker: { type:'string', description:'Worker name, or "all" for everyone' },
+        from_date: { type:'string', description:'YYYY-MM-DD start (inclusive). Default 7 days ago.' },
+        to_date: { type:'string', description:'YYYY-MM-DD end (inclusive). Default today.' }
+      },
+      required: ['worker']
+    }
+  },
+  {
+    name: 'job_progress',
+    description: 'Get progress details for a specific job — completed vs target, percent, days remaining.',
+    input_schema: {
+      type:'object',
+      properties: { job_name: { type:'string' } },
+      required: ['job_name']
+    }
+  }
+];
+
+/* ---- Tool implementations ---- */
+async function chatTool_list_jobs(){
+  const { data, error } = await sb.from('jobs').select('*').eq('status','active').order('deadline',{ascending:true});
+  if (error) return { error: error.message };
+  return {
+    jobs: (data||[]).map(j => {
+      const logged = getJobProgress(j);
+      const pct = j.target ? Math.round((logged/j.target)*100) : 0;
+      return {
+        id: j.id, name: j.name, site: j.site, unit_type: j.unit_type,
+        target: j.target, completed: logged, remaining: Math.max(0, j.target - logged),
+        percent: pct, deadline: j.deadline, area_ha: j.area_ha,
+        notes: j.notes, disciplines: j.disciplines ? JSON.parse(j.disciplines) : null
+      };
+    })
+  };
+}
+async function chatTool_list_sites(){ return { sites: dbLocs }; }
+async function chatTool_list_crew(){ return { crew: CREW }; }
+
+async function chatTool_create_job(args){
+  // We DO NOT directly insert here — we ask the user to confirm.
+  return { needs_confirmation: true, summary: args };
+}
+
+async function chatTool_log_coverage(args){
+  return { needs_confirmation: true, summary: args, action:'log_coverage' };
+}
+
+async function chatTool_pay_breakdown(args){
+  const today = new Date().toISOString().split('T')[0];
+  const ago = new Date(Date.now()-7*86400000).toISOString().split('T')[0];
+  const from = args.from_date || ago;
+  const to = args.to_date || today;
+
+  // Build job rate map: discipline -> rate per unit
+  const { data: jobs } = await sb.from('jobs').select('*');
+  const rateBy = {}; // {site: {discipline: rate}}
+  (jobs||[]).forEach(j => {
+    if (!j.site) return;
+    rateBy[j.site] = rateBy[j.site] || {};
+    if (j.disciplines) {
+      try { JSON.parse(j.disciplines).forEach(d => { rateBy[j.site][d.type] = d.rate || 0; }); } catch(e){}
+    }
+    if (j.planting_type && j.rate_per_unit) rateBy[j.site][j.planting_type] = j.rate_per_unit;
+  });
+
+  const inRange = e => e.date >= from && e.date <= to && e.status === 'approved';
+  const matchWorker = (e) => {
+    if (args.worker === 'all') return true;
+    const submitted = e.submitted_by === args.worker;
+    const onCrew = (e.crew||[]).includes(args.worker);
+    return submitted || onCrew;
+  };
+
+  const breakdown = {};
+  function add(worker, jobLabel, amount, rate){
+    breakdown[worker] = breakdown[worker] || {total:0, lines:[]};
+    const pay = amount * (rate||0);
+    breakdown[worker].total += pay;
+    breakdown[worker].lines.push({ job: jobLabel, amount, rate: rate||0, pay });
+  }
+
+  // planting entries
+  dbE.filter(e => inRange(e) && matchWorker(e)).forEach(e => {
+    const rate = (rateBy[e.loc]||{})[e.job_type||'straight'] || 0;
+    const split = (e.crew||[]).length || 1;
+    const myShare = e.trees / split;
+    add(e.submitted_by, (e.loc||'?')+' '+(e.job_type||'planting'), myShare, rate);
+    (e.crew||[]).filter(c => c !== e.submitted_by && (args.worker==='all'||c===args.worker)).forEach(c => {
+      add(c, (e.loc||'?')+' '+(e.job_type||'planting'), myShare, rate);
+    });
+  });
+  // spray
+  dbSp.filter(e => inRange(e) && matchWorker(e)).forEach(e => {
+    const rate = (rateBy[e.loc]||{})[e.chemical] || 0;
+    const split = (e.crew||[]).length || 1;
+    const myShare = parseFloat(e.hectares||0) / split;
+    add(e.submitted_by, (e.loc||'?')+' '+e.chemical, myShare, rate);
+    (e.crew||[]).filter(c => c !== e.submitted_by && (args.worker==='all'||c===args.worker)).forEach(c => {
+      add(c, (e.loc||'?')+' '+e.chemical, myShare, rate);
+    });
+  });
+  // work
+  dbWk.filter(e => inRange(e) && matchWorker(e)).forEach(e => {
+    const rate = e.rate || (rateBy[e.loc]||{})[e.job_type] || 0;
+    const split = (e.crew||[]).length || 1;
+    const myShare = parseFloat(e.unit_value||0) / split;
+    add(e.submitted_by, (e.loc||'?')+' '+e.job_type, myShare, rate);
+    (e.crew||[]).filter(c => c !== e.submitted_by && (args.worker==='all'||c===args.worker)).forEach(c => {
+      add(c, (e.loc||'?')+' '+e.job_type, myShare, rate);
+    });
+  });
+
+  return { from, to, breakdown };
+}
+
+async function chatTool_job_progress(args){
+  const { data } = await sb.from('jobs').select('*').ilike('name','%'+args.job_name+'%');
+  if (!data || !data.length) return { error: 'No job found matching "'+args.job_name+'"' };
+  const j = data[0];
+  const logged = getJobProgress(j);
+  const remaining = Math.max(0, j.target - logged);
+  const pct = j.target ? Math.round((logged/j.target)*100) : 0;
+  let daysLeft = null;
+  if (j.deadline) {
+    const d = new Date(j.deadline);
+    daysLeft = Math.ceil((d - new Date())/86400000);
+  }
+  return { job: j.name, site: j.site, unit_type: j.unit_type, target: j.target, completed: logged, remaining, percent: pct, deadline: j.deadline, days_left: daysLeft };
+}
+
+async function chatExecuteTool(name, args){
+  try {
+    switch(name) {
+      case 'list_jobs': return await chatTool_list_jobs();
+      case 'list_sites': return await chatTool_list_sites();
+      case 'list_crew': return await chatTool_list_crew();
+      case 'create_job': return await chatTool_create_job(args);
+      case 'log_coverage': return await chatTool_log_coverage(args);
+      case 'pay_breakdown': return await chatTool_pay_breakdown(args);
+      case 'job_progress': return await chatTool_job_progress(args);
+      default: return { error: 'Unknown tool: '+name };
+    }
+  } catch(e) {
+    return { error: e.message || String(e) };
+  }
+}
+
+/* ---- Confirmation cards rendered into chat ---- */
+function chatRenderConfirmCard(action, params){
+  let title='', rows=[];
+  if (action === 'create_job') {
+    title = '// Confirm: Create Job';
+    rows = [
+      ['Name', params.name||'—'],
+      ['Site', params.site||'—'],
+      ['Deadline', params.deadline||'—'],
+      ['Area', params.area_ha ? params.area_ha+' ha' : '—']
+    ];
+    if (params.disciplines && params.disciplines.length) {
+      params.disciplines.forEach(d => {
+        rows.push([JL[d.type]||d.type, d.target + (d.rate?' @ £'+d.rate:'')]);
+      });
+    }
+    if (params.notes) rows.push(['Notes', params.notes]);
+  } else if (action === 'log_coverage') {
+    title = '// Confirm: Log Coverage';
+    rows = [
+      ['Site', params.site||'—'],
+      ['Date', params.date||today()],
+      ['Amount', params.amount + ' ' + (params.unit_type||'')],
+      ['Discipline', JL[params.discipline]||params.discipline||'—']
+    ];
+    if (params.crew && params.crew.length) rows.push(['Crew', params.crew.join(', ')]);
+    if (params.notes) rows.push(['Notes', params.notes]);
+  }
+
+  const cardHtml =
+    '<div class="chat-action-card">' +
+      '<div class="cac-title">'+title+'</div>' +
+      rows.map(r => '<div class="cac-row"><span class="cac-label">'+chatEsc(r[0])+'</span><span>'+chatEsc(r[1])+'</span></div>').join('') +
+      '<div class="chat-confirm-row">' +
+        '<button class="chat-confirm-btn ok" onclick="chatConfirmAction(true)">Confirm</button>' +
+        '<button class="chat-confirm-btn cancel" onclick="chatConfirmAction(false)">Cancel</button>' +
+      '</div>' +
+    '</div>';
+  chatAddMsg('bot', cardHtml);
+}
+
+async function chatConfirmAction(yes){
+  if (!CHAT.pendingConfirm) return;
+  // Disable confirm buttons in last card
+  const cards = document.querySelectorAll('#chat-body .chat-action-card');
+  if (cards.length) cards[cards.length-1].querySelectorAll('.chat-confirm-btn').forEach(b=>{b.disabled=true;b.style.opacity='.4';});
+
+  const { action, params, resolve } = CHAT.pendingConfirm;
+  CHAT.pendingConfirm = null;
+
+  if (!yes) {
+    chatAddMsg('tool', '✕ Cancelled');
+    resolve({ cancelled: true });
+    return;
+  }
+
+  let result;
+  if (action === 'create_job') result = await chatActuallyCreateJob(params);
+  else if (action === 'log_coverage') result = await chatActuallyLogCoverage(params);
+  resolve(result);
+}
+
+async function chatActuallyCreateJob(p){
+  const unitMap = {straight:'trees',beatup_t:'trees',beatup_h:'ha',fertiliser:'trees',vole:'guards',stakes_install:'stakes',stakes_removal:'days',weevil:'ha',weed:'ha',brushcutting:'ha',chainsaw:'days',day:'days',other:'units'};
+  const firstDisc = (p.disciplines||[])[0] || null;
+  const unit_type = firstDisc ? (unitMap[firstDisc.type]||'units') : 'units';
+  const target = (p.disciplines||[]).reduce((s,d)=>s+(d.target||0),0) || 1;
+  const area_ha = unit_type==='ha' ? target : (p.area_ha||null);
+
+  const { error, data } = await sb.from('jobs').insert({
+    name: p.name,
+    site: p.site||null,
+    unit_type, target, area_ha,
+    deadline: p.deadline||null,
+    notes: p.notes||null,
+    status: 'active',
+    created_by: user,
+    planting_type: firstDisc ? firstDisc.type : null,
+    rate_per_unit: firstDisc ? firstDisc.rate : null,
+    disciplines: p.disciplines && p.disciplines.length ? JSON.stringify(p.disciplines) : null
+  }).select();
+
+  if (error) {
+    chatAddMsg('error', '⚠ Could not create job: '+chatEsc(error.message));
+    return { error: error.message };
+  }
+  chatAddMsg('tool', '✓ Job "'+chatEsc(p.name)+'" created');
+  toast('Job created from chat', 'ok');
+  if (typeof loadJobs === 'function') await loadJobs();
+  if (typeof renderJobs === 'function') renderJobs();
+  return { success: true, job_id: data && data[0] ? data[0].id : null };
+}
+
+async function chatActuallyLogCoverage(p){
+  const date = p.date || today();
+  const crew = p.crew && p.crew.length ? p.crew : [user];
+  let error;
+
+  if (p.unit_type === 'ha') {
+    // Treat as spray entry if discipline is weevil/weed, else work entry as ha
+    if (p.discipline === 'weevil' || p.discipline === 'weed') {
+      ({ error } = await sb.from('spray_entries').insert({
+        date, chemical: p.discipline, hectares: p.amount,
+        loc: p.site||null, crew, notes: p.notes||null,
+        status: isSup ? 'approved' : 'pending', submitted_by: user
+      }));
+    } else {
+      ({ error } = await sb.from('work_entries').insert({
+        date, job_type: p.discipline||'beatup_h', unit_type: 'ha', unit_value: p.amount,
+        loc: p.site||null, crew, notes: p.notes||null,
+        status: isSup ? 'approved' : 'pending', submitted_by: user
+      }));
+    }
+  } else if (p.unit_type === 'trees') {
+    ({ error } = await sb.from('entries').insert({
+      date, trees: p.amount, loc: p.site||null, crew,
+      job_type: p.discipline||'straight',
+      notes: p.notes||null,
+      status: isSup ? 'approved' : 'pending', submitted_by: user
+    }));
+  } else {
+    // guards / stakes / days → work_entries
+    const jt = p.unit_type === 'guards' ? 'vole'
+             : p.unit_type === 'stakes' ? 'stakes_install'
+             : 'day';
+    ({ error } = await sb.from('work_entries').insert({
+      date, job_type: p.discipline||jt, unit_type: p.unit_type==='days'?'day':p.unit_type, unit_value: p.amount,
+      loc: p.site||null, crew, notes: p.notes||null,
+      status: isSup ? 'approved' : 'pending', submitted_by: user
+    }));
+  }
+
+  if (error) {
+    chatAddMsg('error', '⚠ Could not log: '+chatEsc(error.message));
+    return { error: error.message };
+  }
+  chatAddMsg('tool', '✓ Logged '+p.amount+' '+p.unit_type+' at '+chatEsc(p.site||'site'));
+  toast('Coverage logged from chat', 'ok');
+  return { success: true };
+}
+
+/* ---- System prompt ---- */
+function chatSystemPrompt(){
+  const role = isDir ? 'director (full access)' : isSup ? 'supervisor (can approve, view all)' : 'planter (own entries only)';
+  return [
+    "You are the Field AI assistant inside "+COMPANY_NAME+", a forestry field-ops app used in the UK and Ireland.",
+    "The current user is "+user+", role: "+role+". Today is "+today()+".",
+    "",
+    "Capabilities you have via tools:",
+    "  - list_jobs, list_sites, list_crew, job_progress: read app state",
+    "  - create_job: register a new job brief (always confirm details first)",
+    "  - log_coverage: log work done — typically used when a planter sends you their daily Avenza map screenshot showing area covered",
+    "  - pay_breakdown: calculate piece-rate pay for a worker over a date range",
+    "",
+    "How to behave:",
+    "  - Be brief, direct, and field-friendly. Crew use this on phones, often in poor signal. No fluff.",
+    "  - When the user uploads an Avenza screenshot or a map: read the visible area covered (hectares or coloured polygon area), the site name if visible, and the date if shown. Then call log_coverage with your best read of the values, but ALWAYS confirm with the user before saving. State what you saw and what you're about to log.",
+    "  - When the user uploads a job brief (PDF or photo of a map): extract site, area, and likely disciplines. Propose a job creation and confirm before calling create_job.",
+    "  - For pay queries: call pay_breakdown and present results as a clear summary — total + key line items.",
+    "  - If a piece of info is missing (site, deadline, rate), ask one short question rather than guessing wildly.",
+    "  - For a planter, restrict pay queries to their own data unless they ask for someone else.",
+    "  - Disciplines available (use exact codes): straight (planting), beatup_t (beat up by tree), beatup_h (beat up by ha), fertiliser, vole (vole guards), brushcutting, hand_weeding, mech_weeding, stakes_install, stakes_removal, chainsaw, gorse, maintenance, weevil (spray), weed (spray), day (day-rate), other.",
+    "  - Crew on file: "+CREW.join(', ')+".",
+    "  - Sites on file: "+(dbLocs.length?dbLocs.join(', '):'(none yet)')+".",
+    "",
+    "Output format: keep replies short. Use plain text. Use • for short lists. No markdown headers. No code fences."
+  ].join('\n');
+}
+
+/* ---- Main send loop with tool-use ---- */
+async function chatSend(){
+  if (CHAT.busy) return;
+  const ta = document.getElementById('chat-input');
+  const text = ta.value.trim();
+  if (!text && CHAT.attachments.length === 0) return;
+
+  // Build user message content
+  const content = [];
+  for (const a of CHAT.attachments) {
+    if (a.type === 'image') {
+      content.push({ type:'image', source:{ type:'base64', media_type:a.mediaType, data:a.b64 } });
+    } else if (a.type === 'pdf') {
+      content.push({ type:'document', source:{ type:'base64', media_type:'application/pdf', data:a.b64 } });
+    }
+  }
+  if (text) content.push({ type:'text', text });
+
+  // Render user message
+  let userHtml = '';
+  CHAT.attachments.forEach(a => {
+    if (a.type === 'image') userHtml += '<div class="msg-attachment"><img src="'+a.dataUrl+'"/></div>';
+    else userHtml += '<div class="msg-attachment pdf">📄 '+chatEsc(a.name)+'</div>';
+  });
+  if (text) userHtml += (userHtml?'<div style="margin-top:6px">':'') + chatEsc(text) + (userHtml?'</div>':'');
+  chatAddMsg('user', userHtml);
+
+  // Push to history
+  CHAT.history.push({ role:'user', content });
+  CHAT.attachments = [];
+  chatRenderAttachments();
+  ta.value = '';
+  chatAutoGrow(ta);
+  chatRenderSuggestions([]);
+  CHAT.busy = true;
+  document.getElementById('chat-send-btn').disabled = true;
+  document.getElementById('chat-sub-status').textContent = 'Thinking...';
+
+  try {
+    await chatRunAgentLoop();
+  } catch (e) {
+    chatRemoveTyping();
+    chatAddMsg('error', '⚠ '+chatEsc(e.message||'Something went wrong'));
+  } finally {
+    CHAT.busy = false;
+    document.getElementById('chat-send-btn').disabled = false;
+    document.getElementById('chat-sub-status').textContent = 'Ready';
+  }
+}
+
+async function chatRunAgentLoop(){
+  // Up to 6 iterations of tool calls
+  for (let i = 0; i < 6; i++) {
+    chatAddTyping();
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        system: chatSystemPrompt(),
+        tools: CHAT_TOOLS,
+        messages: CHAT.history
+      })
+    });
+    chatRemoveTyping();
+    if (!resp.ok) {
+      let msg = 'HTTP '+resp.status;
+      try { const j = await resp.json(); msg = j.error?.message || j.message || msg; } catch(e){}
+      throw new Error(msg);
+    }
+    const data = await resp.json();
+    const content = data.content || [];
+
+    // Render assistant text + record assistant turn
+    CHAT.history.push({ role:'assistant', content });
+
+    let textOut = '';
+    const toolUses = [];
+    content.forEach(block => {
+      if (block.type === 'text') textOut += block.text;
+      else if (block.type === 'tool_use') toolUses.push(block);
+    });
+    if (textOut.trim()) chatAddMsg('bot', chatEsc(textOut.trim()).replace(/\n/g,'<br/>'));
+
+    if (data.stop_reason !== 'tool_use' || toolUses.length === 0) {
+      return; // done
+    }
+
+    // Execute each tool call
+    const toolResults = [];
+    for (const tu of toolUses) {
+      chatAddMsg('tool', '⚙ '+tu.name+(Object.keys(tu.input||{}).length?' ('+Object.keys(tu.input).join(', ')+')':''));
+
+      let result;
+      if (tu.name === 'create_job' || tu.name === 'log_coverage') {
+        // Render confirmation card and wait
+        chatRenderConfirmCard(tu.name, tu.input);
+        result = await new Promise(resolve => {
+          CHAT.pendingConfirm = { action: tu.name, params: tu.input, resolve };
+        });
+      } else {
+        result = await chatExecuteTool(tu.name, tu.input);
+      }
+
+      toolResults.push({
+        type:'tool_result',
+        tool_use_id: tu.id,
+        content: JSON.stringify(result).slice(0, 8000)
+      });
+    }
+
+    CHAT.history.push({ role:'user', content: toolResults });
+    // Loop continues — assistant gets to react to results
+  }
+  chatAddMsg('error', 'Hit tool-call limit — try rephrasing.');
+}
+
+/* Hook chat FAB into login/logout flow */
+const _origLaunch = typeof launch === 'function' ? launch : null;
+window.addEventListener('load', () => {
+  // Watch for app-shell becoming visible
+  const obs = new MutationObserver(() => {
+    const shell = document.getElementById('app-shell');
+    if (shell && shell.style.display !== 'none' && user) chatShowFab();
+    else chatHideFab();
+  });
+  const shell = document.getElementById('app-shell');
+  if (shell) obs.observe(shell, { attributes:true, attributeFilter:['style'] });
+});
+const _origLogout = typeof logout === 'function' ? logout : null;
+if (_origLogout) {
+  window.logout = function(){
+    chatHideFab();
+    document.getElementById('chat-overlay').classList.remove('show');
+    CHAT.history = [];
+    CHAT.attachments = [];
+    document.getElementById('chat-body').innerHTML = '';
+    return _origLogout.apply(this, arguments);
+  };
 }
 </script>
 </body>
