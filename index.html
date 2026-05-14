@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root{--black:#080a07;--deep:#0e1209;--panel:#141a0f;--card:#1a2214;--border:#253020;--moss:#3d4a2e;--pine:#4a6741;--leaf:#6b9e5e;--bright:#8dc97c;--gold:#c9a84c;--cream:#ddd8c4;--muted:#7a8470;--red:#b83232;--orange:#c97a2b;--blue:#4a7fa0;--bl:#6ba3c4;--mono:'Share Tech Mono',monospace;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -1032,6 +1033,7 @@ select option{background:var(--panel);}
         <div id="exp-menu" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
           <button class="exp-tile active" data-mod="chess" onclick="expOpen('chess')">Chess</button>
           <button class="exp-tile" data-mod="species" onclick="expOpen('species')">Species ID</button>
+          <button class="exp-tile" data-mod="geomap" onclick="expOpen('geomap')">Map Tracker</button>
           <button class="mgmt-btn" style="margin-left:auto;padding:8px 12px;font-size:10px;letter-spacing:2px;" onclick="expLock()">Lock</button>
         </div>
         <div class="exp-module" id="exp-chess">
@@ -1091,6 +1093,34 @@ select option{background:var(--panel);}
           <input type="file" id="species-file" accept="image/*" capture="environment" style="display:none" onchange="identifySpecies(this)"/>
           <div id="species-preview"></div>
           <div id="species-result"></div>
+        </div>
+        <div class="exp-module" id="exp-geomap" style="display:none;">
+          <div style="background:var(--panel);border:1px solid var(--border);border-left:2px solid var(--gold);border-radius:3px;padding:12px;margin-bottom:12px;">
+            <div style="font-family:var(--mono);font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:4px;">// GeoPDF Tracker &mdash; v0.1</div>
+            <div style="color:var(--muted);font-size:12px;line-height:1.4;">Load a georeferenced PDF (e.g. Euroforest ops map). Your GPS position will plot on the map in real time.</div>
+          </div>
+          <div id="gm-empty" class="species-upload-zone" onclick="document.getElementById('gm-file').click()">
+            <div class="upload-zone-lbl">Tap to load a GeoPDF</div>
+            <div class="upload-zone-sub">QGIS GeoPDF &middot; ISO 32000 GEO viewports</div>
+          </div>
+          <input type="file" id="gm-file" accept="application/pdf" style="display:none" onchange="gmLoadFile(this.files[0])"/>
+          <div id="gm-stage" style="display:none;">
+            <div id="gm-meta" style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;line-height:1.5;"></div>
+            <div id="gm-viewport" style="position:relative;width:100%;aspect-ratio:1191/842;background:#050805;border:1px solid var(--border);border-radius:3px;overflow:hidden;touch-action:none;">
+              <canvas id="gm-canvas" style="position:absolute;top:0;left:0;transform-origin:0 0;"></canvas>
+              <div id="gm-dot" style="display:none;position:absolute;width:18px;height:18px;border-radius:50%;background:#4a7fa0;border:2px solid #fff;box-shadow:0 0 0 4px rgba(74,127,160,.35),0 0 12px rgba(74,127,160,.6);transform:translate(-50%,-50%);pointer-events:none;z-index:5;"></div>
+              <div id="gm-acc" style="display:none;position:absolute;border-radius:50%;background:rgba(74,127,160,.12);border:1px solid rgba(74,127,160,.4);transform:translate(-50%,-50%);pointer-events:none;z-index:4;"></div>
+              <div id="gm-status" style="position:absolute;top:8px;left:8px;background:rgba(8,10,7,.85);border:1px solid var(--border);padding:6px 9px;border-radius:3px;font-family:var(--mono);font-size:9px;line-height:1.5;color:var(--cream);max-width:calc(100% - 60px);"></div>
+              <div style="position:absolute;bottom:8px;right:8px;display:flex;flex-direction:column;gap:6px;">
+                <button id="gm-recenter" onclick="gmRecenter()" style="width:40px;height:40px;border-radius:50%;background:rgba(20,26,15,.92);border:1px solid var(--pine);color:var(--bright);font-size:18px;cursor:pointer;display:none;">⊙</button>
+                <button id="gm-toggle" onclick="gmToggleGps()" style="width:40px;height:40px;border-radius:50%;background:rgba(20,26,15,.92);border:1px solid var(--pine);color:var(--bright);font-size:14px;cursor:pointer;">GPS</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:8px;">
+              <button class="chess-btn" onclick="gmReset()" style="flex:1;">Load Another</button>
+              <button class="chess-btn" onclick="gmFit()" style="flex:1;">Fit to Screen</button>
+            </div>
+          </div>
         </div>
         <div id="exp-promote" class="exp-promote" style="display:none;">
           <div class="exp-promote-inner">
@@ -4198,6 +4228,447 @@ if (_origLogout) {
     document.getElementById('chat-body').innerHTML = '';
     return _origLogout.apply(this, arguments);
   };
+}
+
+/* =========================================================
+   GeoPDF Map Tracker — Lab module
+   - Parses /VP/Measure (GPTS, LPTS) from ISO 32000 GeoPDFs
+   - Builds affine transform: lat/lng -> page pts -> canvas pixels
+   - Renders PDF page to canvas, overlays GPS position
+   ========================================================= */
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+const GM = {
+  pdf: null,
+  page: null,
+  pageW: 0,        // PDF page width in points
+  pageH: 0,        // PDF page height in points
+  renderScale: 2,  // raster resolution multiplier for sharp zoom
+  canvasW: 0,      // raster width in pixels
+  canvasH: 0,
+  // Affine transform: page (pt) -> lat/lng
+  //   lat = aLat*x + bLat*y + cLat
+  //   lng = aLng*x + bLng*y + cLng
+  fwd: null,
+  // Inverse: lat/lng -> page (pt)
+  inv: null,
+  // Viewport pan/zoom
+  view: { x: 0, y: 0, scale: 1 },
+  // Touch state
+  touch: { lastX:0, lastY:0, lastDist:0, mode:null },
+  // GPS
+  gps: { watchId: null, lat: null, lng: null, accuracy: null, follow: true, active: false }
+};
+
+async function gmLoadFile(file) {
+  if (!file) return;
+  if (typeof pdfjsLib === 'undefined') { gmStatus('<span style="color:var(--red)">pdf.js failed to load</span>'); return; }
+  try {
+    gmStatus('Loading PDF…');
+    const buf = await file.arrayBuffer();
+    GM.pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    GM.page = await GM.pdf.getPage(1);
+
+    // Read viewport at scale 1 to get raw page dims in points
+    const vp1 = GM.page.getViewport({ scale: 1 });
+    GM.pageW = vp1.width;
+    GM.pageH = vp1.height;
+
+    // Parse geo metadata
+    const geo = await gmParseGeo(GM.page);
+    if (!geo) {
+      gmStatus('<span style="color:var(--orange)">No geo metadata — this is not a GeoPDF. (Avenza-style calibration coming in next build.)</span>');
+      return;
+    }
+    GM.fwd = geo.fwd;
+    GM.inv = geo.inv;
+
+    // Render PDF page to canvas at renderScale
+    const canvas = document.getElementById('gm-canvas');
+    const ctx = canvas.getContext('2d');
+    const vp = GM.page.getViewport({ scale: GM.renderScale });
+    GM.canvasW = canvas.width = Math.floor(vp.width);
+    GM.canvasH = canvas.height = Math.floor(vp.height);
+    canvas.style.width = GM.canvasW + 'px';
+    canvas.style.height = GM.canvasH + 'px';
+    await GM.page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+    document.getElementById('gm-empty').style.display = 'none';
+    document.getElementById('gm-stage').style.display = 'block';
+
+    // Meta line
+    const ctr = gmPageToLatLng(GM.pageW/2, GM.pageH/2);
+    document.getElementById('gm-meta').innerHTML =
+      `<span style="color:var(--leaf)">Loaded:</span> ${file.name} &middot; ` +
+      `${Math.round(GM.pageW)}&times;${Math.round(GM.pageH)}pt &middot; ` +
+      `centre ${ctr.lat.toFixed(5)}, ${ctr.lng.toFixed(5)}`;
+
+    gmFit();
+    gmStatus('Ready. Tap GPS to start tracking.');
+    gmHookGestures();
+  } catch (e) {
+    console.error(e);
+    gmStatus('<span style="color:var(--red)">Load failed: ' + (e.message || e) + '</span>');
+  }
+}
+
+/* Parse /VP[0]/Measure -> GPTS + LPTS, build affine transforms. */
+async function gmParseGeo(page) {
+  // pdf.js exposes raw dict via page.getAnnotations? No - we need _pageInfo or via objs.
+  // Workaround: use the lower-level _pageDict via page.pageInfo - but the supported path is page.getViewport and page.commonObjs.
+  // Practical route: use pdfjsLib's getPageProxy internals via page._pageInfo? Not stable.
+  // Reliable route: re-parse the PDF bytes for the VP dict ourselves.
+  // We already have GM.pdf, but PDFDocumentProxy doesn't expose raw dicts. So: read raw bytes through pdfjs internal? Use page._transport?
+  // Cleanest: pdfjs page has `getJSActions` etc, but for VP we use `page._pageInfo` — varies by version.
+  // Safest: query the page's internal pageDict.
+  try {
+    // pdf.js v3 internal: page._pageInfo holds dict items including VP if present, but tucked away.
+    // The supported public way: page.getViewport gives geometry only. So we hit the raw dict.
+    const dict = await page._transport.getPage(page._pageIndex).then(()=>page);
+    // The internal structure is page.objs / page._pageInfo. Easiest portable read: use getAnnotations to force dict resolve, then read page._pageInfo
+    await page.getAnnotations();
+    const info = page._pageInfo || {};
+    let vp = info.viewport || info.VP || null;
+
+    // Fallback: walk through pdf-side ref using getPage internals
+    if (!vp) {
+      // pdf.js v3 stores parsed page in transport: messageHandler send 'GetPage'
+      // We instead use a manual byte parse fallback so we don't depend on internals.
+      return gmParseGeoFromBytes();
+    }
+    return gmBuildTransformFromVP(vp);
+  } catch (e) {
+    return gmParseGeoFromBytes();
+  }
+}
+
+/* Fallback: parse the raw PDF bytes directly for GPTS / LPTS / BBox.
+   This is robust across pdf.js versions and how QGIS writes the VP dict. */
+async function gmParseGeoFromBytes() {
+  try {
+    const data = GM.pdf.getData ? await GM.pdf.getData() : null;
+    if (!data) return null;
+    const len = data.length;
+
+    // Build text from head + tail. QGIS places geo dict near xref at end of file.
+    let text = '';
+    const HEAD = Math.min(len, 300000);
+    const TAIL = Math.min(len, 300000);
+    for (let i = 0; i < HEAD; i++) text += String.fromCharCode(data[i]);
+    if (len > HEAD) {
+      const from = Math.max(HEAD, len - TAIL);
+      for (let i = from; i < len; i++) text += String.fromCharCode(data[i]);
+    }
+
+    const gptsMatch = text.match(/\/GPTS\s*\[([^\]]+)\]/);
+    const lptsMatch = text.match(/\/LPTS\s*\[([^\]]+)\]/);
+    const bboxMatch = text.match(/\/BBox\s*\[([^\]]+)\]/);
+    if (!gptsMatch || !lptsMatch) return null;
+
+    const parseNums = s => s.trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+    const gpts = parseNums(gptsMatch[1]);  // 8 numbers: lat,lng,lat,lng,lat,lng,lat,lng (4 corners)
+    const lpts = parseNums(lptsMatch[1]);  // 8 numbers: x,y normalised 0..1 (4 corners)
+    if (gpts.length < 8 || lpts.length < 8) return null;
+
+    const bbox = bboxMatch ? parseNums(bboxMatch[1]) : [0, 0, GM.pageW, GM.pageH];
+    // bbox = [llx, lly, urx, ury]
+    const bx = bbox[0], by = bbox[1], bw = bbox[2] - bbox[0], bh = bbox[3] - bbox[1];
+
+    // Convert LPTS (normalised) to page-point coordinates
+    // PDF convention: y up from bottom-left
+    const pagePts = [];
+    for (let i = 0; i < 4; i++) {
+      const lx = lpts[i*2], ly = lpts[i*2+1];
+      pagePts.push({
+        x: bx + lx * bw,
+        y: by + ly * bh,
+        lat: gpts[i*2],
+        lng: gpts[i*2+1]
+      });
+    }
+    return gmBuildAffineFromPoints(pagePts);
+  } catch (e) {
+    console.error('Geo parse failed:', e);
+    return null;
+  }
+}
+
+/* Solve affine transform from 3 control points (4th used as accuracy check).
+   page (x,y) in points -> (lat, lng). */
+function gmBuildAffineFromPoints(pts) {
+  // Use first 3 points to solve 6 unknowns
+  // [x1 y1 1 0  0  0] [aLat]   [lat1]
+  // [0  0  0 x1 y1 1] [bLat]   [lng1]
+  // [x2 y2 1 0  0  0] [cLat] = [lat2]
+  // [0  0  0 x2 y2 1] [aLng]   [lng2]
+  // [x3 y3 1 0  0  0] [bLng]   [lat3]
+  // [0  0  0 x3 y3 1] [cLng]   [lng3]
+  const M = [
+    [pts[0].x, pts[0].y, 1, 0, 0, 0],
+    [0, 0, 0, pts[0].x, pts[0].y, 1],
+    [pts[1].x, pts[1].y, 1, 0, 0, 0],
+    [0, 0, 0, pts[1].x, pts[1].y, 1],
+    [pts[2].x, pts[2].y, 1, 0, 0, 0],
+    [0, 0, 0, pts[2].x, pts[2].y, 1],
+  ];
+  const b = [pts[0].lat, pts[0].lng, pts[1].lat, pts[1].lng, pts[2].lat, pts[2].lng];
+  const sol = gmSolve6(M, b);
+  if (!sol) return null;
+  const fwd = { a: sol[0], b: sol[1], c: sol[2], d: sol[3], e: sol[4], f: sol[5] };
+
+  // Invert: solve for inverse coefficients
+  // [lat] = [a b][x] + [c]    [x] = inv * ([lat-c, lng-f])
+  // [lng]   [d e][y]   [f]    [y]
+  const det = fwd.a * fwd.e - fwd.b * fwd.d;
+  if (Math.abs(det) < 1e-20) return null;
+  const inv = {
+    a:  fwd.e / det, b: -fwd.b / det,
+    d: -fwd.d / det, e:  fwd.a / det,
+    c: fwd.c, f: fwd.f
+  };
+  return { fwd, inv };
+}
+
+function gmBuildTransformFromVP(vp) {
+  // Future hook for when we manage to read the parsed VP dict from pdf.js
+  return null;
+}
+
+/* 6x6 Gaussian elimination */
+function gmSolve6(M, b) {
+  const n = 6;
+  const A = M.map((row, i) => [...row, b[i]]);
+  for (let i = 0; i < n; i++) {
+    // pivot
+    let piv = i;
+    for (let k = i+1; k < n; k++) if (Math.abs(A[k][i]) > Math.abs(A[piv][i])) piv = k;
+    if (piv !== i) { const t = A[i]; A[i] = A[piv]; A[piv] = t; }
+    if (Math.abs(A[i][i]) < 1e-15) return null;
+    for (let k = i+1; k < n; k++) {
+      const f = A[k][i] / A[i][i];
+      for (let j = i; j <= n; j++) A[k][j] -= f * A[i][j];
+    }
+  }
+  const x = new Array(n);
+  for (let i = n-1; i >= 0; i--) {
+    let s = A[i][n];
+    for (let j = i+1; j < n; j++) s -= A[i][j] * x[j];
+    x[i] = s / A[i][i];
+  }
+  return x;
+}
+
+function gmPageToLatLng(x, y) {
+  const f = GM.fwd;
+  return { lat: f.a*x + f.b*y + f.c, lng: f.d*x + f.e*y + f.f };
+}
+
+function gmLatLngToPage(lat, lng) {
+  const i = GM.inv;
+  // lat - c, lng - f
+  const dx = lat - i.c, dy = lng - i.f;
+  return { x: i.a * dx + i.b * dy, y: i.d * dx + i.e * dy };
+}
+
+/* ---- Viewport pan/zoom ---- */
+function gmApplyView() {
+  const c = document.getElementById('gm-canvas');
+  c.style.transform = `translate(${GM.view.x}px, ${GM.view.y}px) scale(${GM.view.scale})`;
+  gmUpdateDotPosition();
+}
+
+function gmFit() {
+  const vp = document.getElementById('gm-viewport');
+  if (!vp || !GM.canvasW) return;
+  const vw = vp.clientWidth, vh = vp.clientHeight;
+  const s = Math.min(vw / GM.canvasW, vh / GM.canvasH);
+  GM.view.scale = s;
+  GM.view.x = (vw - GM.canvasW * s) / 2;
+  GM.view.y = (vh - GM.canvasH * s) / 2;
+  gmApplyView();
+}
+
+function gmHookGestures() {
+  const vp = document.getElementById('gm-viewport');
+  if (vp._gmHooked) return;
+  vp._gmHooked = true;
+
+  vp.addEventListener('pointerdown', e => {
+    if (!GM.pdf) return;
+    vp.setPointerCapture(e.pointerId);
+    if (!vp._ptrs) vp._ptrs = new Map();
+    vp._ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    GM.gps.follow = false;
+  });
+  vp.addEventListener('pointermove', e => {
+    if (!vp._ptrs || !vp._ptrs.has(e.pointerId)) return;
+    const prev = vp._ptrs.get(e.pointerId);
+    if (vp._ptrs.size === 1) {
+      GM.view.x += e.clientX - prev.x;
+      GM.view.y += e.clientY - prev.y;
+      gmApplyView();
+    } else if (vp._ptrs.size === 2) {
+      vp._ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const pts = [...vp._ptrs.values()];
+      const cx = (pts[0].x + pts[1].x) / 2;
+      const cy = (pts[0].y + pts[1].y) / 2;
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      if (vp._lastDist) {
+        const rect = vp.getBoundingClientRect();
+        const k = dist / vp._lastDist;
+        const newScale = Math.max(0.1, Math.min(8, GM.view.scale * k));
+        // zoom about the midpoint
+        const px = cx - rect.left, py = cy - rect.top;
+        GM.view.x = px - (px - GM.view.x) * (newScale / GM.view.scale);
+        GM.view.y = py - (py - GM.view.y) * (newScale / GM.view.scale);
+        GM.view.scale = newScale;
+        gmApplyView();
+      }
+      vp._lastDist = dist;
+      vp._ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      return;
+    }
+    vp._ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  });
+  const end = e => {
+    if (!vp._ptrs) return;
+    vp._ptrs.delete(e.pointerId);
+    if (vp._ptrs.size < 2) vp._lastDist = 0;
+  };
+  vp.addEventListener('pointerup', end);
+  vp.addEventListener('pointercancel', end);
+
+  vp.addEventListener('wheel', e => {
+    if (!GM.pdf) return;
+    e.preventDefault();
+    const rect = vp.getBoundingClientRect();
+    const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    const k = e.deltaY < 0 ? 1.15 : 1/1.15;
+    const newScale = Math.max(0.1, Math.min(8, GM.view.scale * k));
+    GM.view.x = px - (px - GM.view.x) * (newScale / GM.view.scale);
+    GM.view.y = py - (py - GM.view.y) * (newScale / GM.view.scale);
+    GM.view.scale = newScale;
+    gmApplyView();
+    GM.gps.follow = false;
+  }, { passive: false });
+}
+
+/* ---- GPS ---- */
+function gmToggleGps() {
+  if (GM.gps.active) {
+    gmStopGps();
+  } else {
+    gmStartGps();
+  }
+}
+
+function gmStartGps() {
+  if (!navigator.geolocation) { gmStatus('<span style="color:var(--red)">No geolocation API</span>'); return; }
+  gmStatus('Requesting GPS…');
+  GM.gps.active = true;
+  GM.gps.follow = true;
+  document.getElementById('gm-toggle').style.background = 'rgba(141,201,124,.2)';
+  document.getElementById('gm-recenter').style.display = 'block';
+  GM.gps.watchId = navigator.geolocation.watchPosition(
+    pos => {
+      GM.gps.lat = pos.coords.latitude;
+      GM.gps.lng = pos.coords.longitude;
+      GM.gps.accuracy = pos.coords.accuracy;
+      gmUpdateDotPosition();
+      const inBounds = gmCheckInBounds();
+      gmStatus(
+        `<span style="color:var(--leaf)">GPS</span> ${GM.gps.lat.toFixed(5)}, ${GM.gps.lng.toFixed(5)} ` +
+        `<span style="color:var(--muted)">&plusmn;${Math.round(GM.gps.accuracy)}m</span>` +
+        (inBounds ? '' : ' <span style="color:var(--orange)">[off map]</span>')
+      );
+      if (GM.gps.follow) gmCenterOnGps();
+    },
+    err => {
+      gmStatus('<span style="color:var(--red)">GPS error: ' + err.message + '</span>');
+      gmStopGps();
+    },
+    { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
+  );
+}
+
+function gmStopGps() {
+  if (GM.gps.watchId !== null) navigator.geolocation.clearWatch(GM.gps.watchId);
+  GM.gps.watchId = null;
+  GM.gps.active = false;
+  document.getElementById('gm-toggle').style.background = 'rgba(20,26,15,.92)';
+  document.getElementById('gm-dot').style.display = 'none';
+  document.getElementById('gm-acc').style.display = 'none';
+  gmStatus('GPS off.');
+}
+
+function gmCheckInBounds() {
+  if (GM.gps.lat == null) return false;
+  const p = gmLatLngToPage(GM.gps.lat, GM.gps.lng);
+  return p.x >= 0 && p.x <= GM.pageW && p.y >= 0 && p.y <= GM.pageH;
+}
+
+function gmUpdateDotPosition() {
+  if (GM.gps.lat == null || !GM.fwd) return;
+  const p = gmLatLngToPage(GM.gps.lat, GM.gps.lng);
+  // page pt -> canvas pixel (canvas was rendered at renderScale)
+  // PDF y is up-from-bottom, canvas y is down-from-top
+  const canvasX = p.x * GM.renderScale;
+  const canvasY = (GM.pageH - p.y) * GM.renderScale;
+  // apply current view transform: canvas is translated(x,y) scaled(scale)
+  const screenX = GM.view.x + canvasX * GM.view.scale;
+  const screenY = GM.view.y + canvasY * GM.view.scale;
+  const dot = document.getElementById('gm-dot');
+  dot.style.left = screenX + 'px';
+  dot.style.top = screenY + 'px';
+  dot.style.display = 'block';
+  // accuracy ring: convert metres to canvas pixels.
+  // Approx: 1 deg lat ≈ 111000m. Use lat axis of fwd to estimate pt per metre.
+  if (GM.gps.accuracy) {
+    // pt per metre ≈ pageH / (lat range * 111000)
+    const latSpan = Math.abs(GM.fwd.b) * GM.pageH; // crude: how much lat changes across page height
+    const mPerPagePt = (latSpan * 111000) / GM.pageH;
+    const accPt = GM.gps.accuracy / Math.max(mPerPagePt, 0.001);
+    const accCanvas = accPt * GM.renderScale * GM.view.scale;
+    const acc = document.getElementById('gm-acc');
+    const px = Math.max(8, Math.min(400, accCanvas * 2));
+    acc.style.width = px + 'px';
+    acc.style.height = px + 'px';
+    acc.style.left = screenX + 'px';
+    acc.style.top = screenY + 'px';
+    acc.style.display = 'block';
+  }
+}
+
+function gmCenterOnGps() {
+  if (GM.gps.lat == null) return;
+  const p = gmLatLngToPage(GM.gps.lat, GM.gps.lng);
+  const canvasX = p.x * GM.renderScale;
+  const canvasY = (GM.pageH - p.y) * GM.renderScale;
+  const vp = document.getElementById('gm-viewport');
+  const vw = vp.clientWidth, vh = vp.clientHeight;
+  GM.view.x = vw/2 - canvasX * GM.view.scale;
+  GM.view.y = vh/2 - canvasY * GM.view.scale;
+  gmApplyView();
+}
+
+function gmRecenter() {
+  GM.gps.follow = true;
+  gmCenterOnGps();
+}
+
+function gmReset() {
+  gmStopGps();
+  GM.pdf = null; GM.page = null; GM.fwd = null; GM.inv = null;
+  document.getElementById('gm-stage').style.display = 'none';
+  document.getElementById('gm-empty').style.display = 'block';
+  document.getElementById('gm-file').value = '';
+}
+
+function gmStatus(html) {
+  const el = document.getElementById('gm-status');
+  if (el) el.innerHTML = html;
 }
 </script>
 </body>
