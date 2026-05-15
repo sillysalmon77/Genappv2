@@ -8,6 +8,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/@turf/turf@7/turf.min.js"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root{--black:#080a07;--deep:#0e1209;--panel:#141a0f;--card:#1a2214;--border:#253020;--moss:#3d4a2e;--pine:#4a6741;--leaf:#6b9e5e;--bright:#8dc97c;--gold:#c9a84c;--cream:#ddd8c4;--muted:#7a8470;--red:#b83232;--orange:#c97a2b;--blue:#4a7fa0;--bl:#6ba3c4;--mono:'Share Tech Mono',monospace;}
@@ -908,6 +910,14 @@ select option{background:var(--panel);}
   </div>
   <main>
     <div class="tab-panel active" id="tab-home">
+      <div id="live-sessions-banner" style="display:none;background:linear-gradient(90deg,rgba(184,50,50,.18),rgba(184,50,50,.05));border:1px solid var(--red);border-radius:3px;margin:0 0 14px 0;overflow:hidden;position:relative;">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid rgba(184,50,50,.4);">
+          <span class="gm-rec-pulse" style="color:var(--red);">●</span>
+          <span style="font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--red);">LIVE SESSIONS</span>
+          <span id="live-sessions-count" style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:auto;">0</span>
+        </div>
+        <div id="live-sessions-track" style="display:flex;gap:10px;padding:10px 12px;overflow-x:auto;scroll-snap-type:x mandatory;"></div>
+      </div>
       <div class="hero-block">
         <div class="hero-label">// Trees in Ground &mdash; All Time</div>
         <div class="hero-num" id="home-total">&mdash;</div>
@@ -1307,9 +1317,8 @@ select option{background:var(--panel);}
                   <div id="gm-stat-pts" style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:var(--cream);">0</div>
                 </div>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
-                <button class="chess-btn" onclick="gmExportGPX()" style="font-size:10px;">⬇ GPX</button>
-                <button class="chess-btn" onclick="gmExportGeoJSON()" style="font-size:10px;">⬇ GeoJSON</button>
+              <div style="display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:6px;">
+                <button class="chess-btn primary" onclick="gmExportReport()" style="font-size:11px;letter-spacing:2px;">⬇ EXPORT REPORT (PNG)</button>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
                 <button class="chess-btn" onclick="gmSaveTrack()" style="font-size:10px;">☁ Save</button>
@@ -5420,6 +5429,8 @@ function gmTrackStart() {
     t.startTime = Date.now();
   }
   t.recording = true;
+  if (typeof gfWakeAcquire === 'function') gfWakeAcquire();
+  if (typeof liveStart === 'function') liveStart();
   document.getElementById('gm-track-panel').style.display = 'block';
   if (!t.timer) t.timer = setInterval(gmTrackTick, 1000);
   gmTrackRenderStats();
@@ -5428,6 +5439,8 @@ function gmTrackStart() {
 
 function gmTrackPause() {
   GM.track.recording = false;
+  if (typeof gfWakeRelease === 'function') gfWakeRelease();
+  if (typeof liveStop === 'function') liveStop();
   if (GM.track.timer) { clearInterval(GM.track.timer); GM.track.timer = null; }
   gmTrackRenderStats();
   gmRecBtnRender();
@@ -5671,6 +5684,263 @@ function gmClearTrack() {
   if (overlay) overlay.getContext('2d').clearRect(0,0,overlay.width,overlay.height);
   gmTrackRenderStats();
   gmRecBtnRender();
+}
+
+/* ===== WAKE LOCK ===== keep screen on while recording */
+const GF_WAKE = { lock: null };
+async function gfWakeAcquire() {
+  if (!('wakeLock' in navigator)) return false;
+  try {
+    if (GF_WAKE.lock) return true;
+    GF_WAKE.lock = await navigator.wakeLock.request('screen');
+    GF_WAKE.lock.addEventListener('release', () => { GF_WAKE.lock = null; });
+    return true;
+  } catch (e) { GF_WAKE.lock = null; return false; }
+}
+async function gfWakeRelease() {
+  try { if (GF_WAKE.lock) { await GF_WAKE.lock.release(); GF_WAKE.lock = null; } } catch(e){}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible'
+      && typeof GM !== 'undefined' && GM.track && GM.track.recording) {
+    gfWakeAcquire();
+  }
+});
+
+/* ===== LIVE SESSIONS ===== broadcast position + join others */
+const LIVE_PING_MS = 10000;
+const LIVE_STALE_MS = 90000;
+const LIVE = { pingTimer: null, sessions: [], chan: null };
+
+async function liveStart() {
+  if (typeof sb === 'undefined' || !sb || typeof user === 'undefined' || !user) return;
+  await livePing();
+  if (LIVE.pingTimer) clearInterval(LIVE.pingTimer);
+  LIVE.pingTimer = setInterval(livePing, LIVE_PING_MS);
+}
+
+async function liveStop() {
+  if (LIVE.pingTimer) { clearInterval(LIVE.pingTimer); LIVE.pingTimer = null; }
+  if (typeof sb === 'undefined' || !sb || typeof user === 'undefined' || !user) return;
+  try { await sb.from('active_sessions').delete().eq('user_name', user); } catch(e){}
+}
+
+async function livePing() {
+  if (typeof sb === 'undefined' || !sb || typeof user === 'undefined' || !user) return;
+  if (!GM || !GM.track || !GM.track.recording) return;
+  const titleEl = document.getElementById('gm-fs-title');
+  const mapName = titleEl ? titleEl.textContent : null;
+  const row = {
+    user_name:   user,
+    last_ping:   new Date().toISOString(),
+    lat:         GM.gps.lat || null,
+    lng:         GM.gps.lng || null,
+    accuracy_m:  GM.gps.accuracy ? Math.round(GM.gps.accuracy) : null,
+    map_name:    mapName,
+    distance_m:  Math.round(GM.track.distance || 0),
+    point_count: GM.track.points.length
+  };
+  try {
+    await sb.from('active_sessions')
+      .upsert({ ...row, started_at: new Date(GM.track.startTime || Date.now()).toISOString() },
+              { onConflict: 'user_name' });
+  } catch(e){}
+}
+
+async function liveFetch() {
+  if (typeof sb === 'undefined' || !sb) return;
+  try {
+    const { data } = await sb.from('active_sessions').select('*');
+    const cutoff = Date.now() - LIVE_STALE_MS;
+    const me = (typeof user !== 'undefined') ? user : null;
+    LIVE.sessions = (data || []).filter(s =>
+      new Date(s.last_ping).getTime() > cutoff && s.user_name !== me
+    );
+    liveRender();
+  } catch(e){}
+}
+
+function liveRender() {
+  const banner = document.getElementById('live-sessions-banner');
+  const track  = document.getElementById('live-sessions-track');
+  const count  = document.getElementById('live-sessions-count');
+  if (!banner || !track) return;
+  if (LIVE.sessions.length === 0) { banner.style.display = 'none'; return; }
+  banner.style.display = 'block';
+  if (count) count.textContent = LIVE.sessions.length;
+  track.innerHTML = LIVE.sessions.map(s => {
+    const dist = s.distance_m < 1000
+      ? Math.round(s.distance_m) + 'm'
+      : (s.distance_m/1000).toFixed(2) + 'km';
+    const mins = Math.floor((Date.now() - new Date(s.started_at).getTime()) / 60000);
+    const mapLine = s.map_name
+      ? `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px;">${s.map_name}</div>`
+      : '';
+    const safeName = (s.user_name || '').replace(/'/g, "\\'");
+    return `
+      <div style="flex:0 0 auto;scroll-snap-align:start;background:var(--card);border:1px solid var(--border);border-radius:3px;padding:10px 12px;min-width:190px;display:flex;flex-direction:column;gap:4px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="gm-rec-pulse" style="color:var(--red);font-size:10px;">●</span>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--cream);font-size:14px;">${s.user_name}</span>
+        </div>
+        ${mapLine}
+        <div style="font-family:var(--mono);font-size:9px;color:var(--leaf);letter-spacing:1px;">${dist} · ${mins}m · ${s.point_count} pts</div>
+        <button onclick="liveJoin('${safeName}')" style="margin-top:4px;background:rgba(141,201,124,.12);border:1px solid var(--bright);color:var(--bright);padding:6px 10px;font-family:var(--mono);font-size:9px;letter-spacing:2px;border-radius:3px;cursor:pointer;">JOIN SESSION</button>
+      </div>`;
+  }).join('');
+}
+
+function liveJoin(name) {
+  const s = LIVE.sessions.find(x => x.user_name === name);
+  if (!s || s.lat == null) { if (typeof toast === 'function') toast('No position yet', 'err'); return; }
+  if (typeof showTab === 'function') showTab('experiments');
+  if (typeof switchExp === 'function') switchExp('map');
+  setTimeout(() => {
+    if (GM && GM.leaf) { try { GM.leaf.setView([s.lat, s.lng], 17); } catch(e){} }
+    if (typeof toast === 'function') toast('Joined ' + name + "'s session", 'ok');
+  }, 300);
+}
+
+function liveSubscribe() {
+  if (typeof sb === 'undefined' || !sb) return;
+  if (LIVE.chan) return;
+  LIVE.chan = sb.channel('gf-live-sessions')
+    .on('postgres_changes', { event:'*', schema:'public', table:'active_sessions' }, () => liveFetch())
+    .subscribe();
+  liveFetch();
+  setInterval(liveFetch, 20000);
+}
+
+document.addEventListener('DOMContentLoaded', () => setTimeout(liveSubscribe, 1500));
+
+window.addEventListener('beforeunload', () => {
+  if (typeof sb !== 'undefined' && sb && typeof user !== 'undefined' && user) {
+    try { sb.from('active_sessions').delete().eq('user_name', user); } catch(e){}
+  }
+});
+
+/* ===== SIMPLIFIED EXPORT ===== PNG screenshot + coverage stats */
+const EXPORT_SWATH_M = 2.5;  // half-width of coverage corridor; total swath = 5m. Tune per job.
+
+function gmComputeCoverage() {
+  const pts = GM.track.points;
+  if (pts.length < 2 || typeof turf === 'undefined') {
+    return { covered_ha: 0, total_ha: null, pct: null, distance_m: GM.track.distance, points: pts.length, duration_s: 0 };
+  }
+  const line = turf.lineString(pts.map(p => [p.lng, p.lat]));
+  const buffered = turf.buffer(line, EXPORT_SWATH_M / 1000, { units: 'kilometers' });
+  let covered_ha = turf.area(buffered) / 10000;
+  let total_ha = null, pct = null, clipped_ha = covered_ha;
+  if (GM.compartmentGeoJSON) {
+    try {
+      const poly = GM.compartmentGeoJSON;
+      total_ha = turf.area(poly) / 10000;
+      const inter = turf.intersect(buffered, poly);
+      if (inter) clipped_ha = turf.area(inter) / 10000;
+      pct = total_ha > 0 ? (clipped_ha / total_ha) * 100 : null;
+    } catch(e){}
+  }
+  return {
+    covered_ha: clipped_ha,
+    total_ha,
+    pct,
+    distance_m: GM.track.distance,
+    points: pts.length,
+    duration_s: Math.round(((pts[pts.length-1].t - pts[0].t) || 0) / 1000)
+  };
+}
+
+async function gmExportReport() {
+  const pts = GM.track.points;
+  if (pts.length < 2) { toast('Need at least 2 points to export', 'err'); return; }
+  if (typeof html2canvas === 'undefined') { toast('Loader missing — refresh', 'err'); return; }
+
+  toast('Building report…', 'blue');
+  const stats = gmComputeCoverage();
+  const viewport = document.getElementById('gm-viewport');
+  if (!viewport) { toast('Map not found', 'err'); return; }
+
+  let mapCanvas;
+  try {
+    mapCanvas = await html2canvas(viewport, {
+      useCORS: true, allowTaint: true, backgroundColor: '#0e1209', logging: false
+    });
+  } catch(e) { toast('Screenshot failed', 'err'); return; }
+
+  const PAD = 24, PANEL_H = 220;
+  const W = mapCanvas.width;
+  const H = mapCanvas.height + PANEL_H;
+  const out = document.createElement('canvas');
+  out.width = W; out.height = H;
+  const ctx = out.getContext('2d');
+
+  ctx.fillStyle = '#0e1209';
+  ctx.fillRect(0, 0, W, H);
+  ctx.drawImage(mapCanvas, 0, 0);
+
+  const panelY = mapCanvas.height;
+  ctx.fillStyle = '#141a0f';
+  ctx.fillRect(0, panelY, W, PANEL_H);
+  ctx.strokeStyle = '#253020';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, panelY + 1, W - 2, PANEL_H - 2);
+
+  const titleEl = document.getElementById('gm-fs-title');
+  const mapName = titleEl ? titleEl.textContent : 'MAP';
+  const who = (typeof user !== 'undefined' && user) ? user : '';
+  const when = new Date().toLocaleString();
+
+  ctx.fillStyle = '#8dc97c';
+  ctx.font = 'bold 22px sans-serif';
+  ctx.fillText(mapName + ' — COVERAGE REPORT', PAD, panelY + 38);
+
+  ctx.fillStyle = '#7a8470';
+  ctx.font = '14px sans-serif';
+  ctx.fillText(`${who}  ·  ${when}`, PAD, panelY + 60);
+
+  const stat = (label, val, x, y) => {
+    ctx.fillStyle = '#7a8470';
+    ctx.font = 'bold 11px monospace';
+    ctx.fillText(label.toUpperCase(), x, y);
+    ctx.fillStyle = '#ddd8c4';
+    ctx.font = 'bold 30px sans-serif';
+    ctx.fillText(val, x, y + 36);
+  };
+  const distStr = stats.distance_m < 1000
+    ? Math.round(stats.distance_m) + ' M'
+    : (stats.distance_m / 1000).toFixed(2) + ' KM';
+  const durStr = (() => {
+    const s = stats.duration_s, h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+    return h > 0 ? `${h}H ${m}M` : `${m}M`;
+  })();
+  const covStr = stats.covered_ha.toFixed(2) + ' HA';
+  const pctStr = stats.pct != null ? stats.pct.toFixed(1) + '%' : '—';
+
+  const col = W / 4;
+  stat('Distance', distStr, PAD,            panelY + 100);
+  stat('Time',     durStr,  PAD + col,      panelY + 100);
+  stat('Covered',  covStr,  PAD + col * 2,  panelY + 100);
+  stat('Complete', pctStr,  PAD + col * 3,  panelY + 100);
+
+  if (stats.total_ha != null) {
+    ctx.fillStyle = '#7a8470';
+    ctx.font = '12px monospace';
+    ctx.fillText(`Compartment: ${stats.total_ha.toFixed(2)} ha total · swath assumed ${EXPORT_SWATH_M * 2}m`, PAD, panelY + 180);
+  } else {
+    ctx.fillStyle = '#c97a2b';
+    ctx.font = '12px monospace';
+    ctx.fillText(`No compartment polygon loaded — coverage shown is corridor area only.`, PAD, panelY + 180);
+  }
+
+  out.toBlob(blob => {
+    const filename = gmTrackFilename('png').replace(/\.png$/, '_report.png');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    toast('Report exported · ' + covStr, 'ok');
+  }, 'image/png');
 }
 
 /* ---- Export ---- */
